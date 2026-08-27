@@ -1,8 +1,14 @@
 package br.pucminas.iceibank.dominio.relogio;
 
 public class RelogioLamport {
-
+    private  int contador = 0 ;
     public Carimbo eventoLocal() {
-        return new CarimboLamport(1);
+        contador ++;
+        return new CarimboLamport(contador);
+    }
+
+    private Carimbo aoEnviar(){
+        contador++;
+        return new CarimboLamport(contador);
     }
 }
