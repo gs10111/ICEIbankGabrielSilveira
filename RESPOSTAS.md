@@ -1,0 +1,2 @@
+6.4.1: Para proteger a ordem dos processos , pois a agencia pode ter recebido um 7 ja tendo um processo carimbado com 7. Agora existem dois eventos com carimbo 7: o envio e o recebimento. Mas o envio causou o recebimento
+6.4.2: Contador em 10, aoReceber(carimbo 3) → 11 (o local é maior — o max protege),

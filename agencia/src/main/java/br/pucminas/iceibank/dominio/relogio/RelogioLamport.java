@@ -1,14 +1,27 @@
 package br.pucminas.iceibank.dominio.relogio;
 
 public class RelogioLamport {
-    private  int contador = 0 ;
+    private int contador = 0;
+
     public Carimbo eventoLocal() {
-        contador ++;
-        return new CarimboLamport(contador);
+        return incrementar();
     }
 
-    private Carimbo aoEnviar(){
+    public Carimbo aoEnviar() {
+        return incrementar();
+    }
+
+    private Carimbo incrementar() {
         contador++;
         return new CarimboLamport(contador);
     }
+
+    public Carimbo aoReceber(Carimbo recebido) {
+        int valorRecebido = switch (recebido) {
+            case CarimboLamport(int valor) -> valor;
+        };
+        contador = Math.max(contador, valorRecebido) + 1;
+        return new CarimboLamport(contador);
+    }
+
 }
