@@ -11,12 +11,12 @@ public class RelogioLamport {
         return incrementar();
     }
 
-    private Carimbo incrementar() {
+    private synchronized Carimbo incrementar() {
         contador++;
         return new CarimboLamport(contador);
     }
 
-    public Carimbo aoReceber(Carimbo recebido) {
+    public synchronized Carimbo aoReceber(Carimbo recebido) {
         int valorRecebido = switch (recebido) {
             case CarimboLamport(int valor) -> valor;
         };
