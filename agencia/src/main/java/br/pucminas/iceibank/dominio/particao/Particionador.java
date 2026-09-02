@@ -5,11 +5,21 @@ public final class Particionador {
     private final int totalAgencias; // final: nunca muda depois de construído
 
     public Particionador(int totalAgencias) {
-        // guarde o valor
+        if (totalAgencias <= 0) {
+            throw new IllegalArgumentException("total de agencias deve ser maior que zero: " + totalAgencias);
+        }
+        this.totalAgencias = totalAgencias;
     }
 
     public int agenciaResponsavel(int idConta) {
-        // resto da divisão
+        if (idConta < 0) {
+            throw new IllegalArgumentException("id de conta nao pode ser negativo: " + idConta);
+        }
+        return idConta % totalAgencias;
     }
-}
 
+    public boolean pertenceA(int idConta, int idAgencia) {
+        return agenciaResponsavel(idConta) == idAgencia;
+    }
+
+}
