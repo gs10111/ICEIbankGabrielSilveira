@@ -1,367 +1,256 @@
 # RESPOSTAS — ICEIBank Sprint 1
 
-**Aluno:** gabriel silveira
-**Disciplina:** Laboratório de Desenvolvimento de Aplicações Móveis e Distribuídas — U2
-**Linguagem escolhida:** Java 21 + Spring Boot 3.5.16 (Maven)
-**Arquitetura:** Ports & Adapters (hexagonal) — `dominio` → sem dependência de framework; `aplicacao` → casos de uso e portas; `infra` → adapters
+**Aluno:** gabriel silveira · RA 1466316
+**Disciplina:** Lab. de Desenvolvimento de Aplicações Móveis e Distribuídas — U2
+**Linguagem:** Java 21 + Spring Boot 3.5.16 (Maven)
+**Arquitetura:** MVC — `controle` (rotas/DTOs) · `servico` (regras de aplicação) · `modelo` (regras de negócio) · `repositorio` (persistência)
 
 ---
 
-## Parte B — Relógio de Lamport (seção 6.4)
+## Parte B — Relógio de Lamport (6.4)
 
-### 6.4.1 — Por que `max(contador_local, timestampRecebido) + 1` ao receber, em vez de adotar o timestamp recebido diretamente?
+### 6.4.1 — Por que `max(local, recebido) + 1` em vez de adotar o timestamp recebido?
 
-6.4.1: Para proteger a ordem dos processos , pois a agencia pode ter recebido um 7 ja tendo um processo carimbado com 7. Agora existem dois eventos com carimbo 7: o envio e o recebimento. Mas o envio causou o recebimento
+Para proteger a ordem dos processos: a agência pode receber um 7 já tendo carimbado um evento com 7 — e o envio *causou* o recebimento. Cada metade da fórmula protege uma coisa:
 
-- **O `max` protege a ordem LOCAL (dentro do processo).** Se a agência está no contador 10 e simplesmente adotasse o timestamp 3 recebido, o próximo evento local carimbaria 4 — mas essa agência **já emitiu** os carimbos 4, 5, …, 10. Existiriam dois eventos diferentes com o mesmo carimbo dentro do mesmo processo, e o relógio teria **retrocedido**. Relógio lógico nunca pode andar para trás.
-  → Teste que prova: `aoReceberCarimboMenorNaoRetrocede` (contador em 10, recebe 3, resultado 11).
+- **`max` protege a ordem LOCAL.** Estando em 10, adotar o 3 recebido faria o próximo evento carimbar 4 — mas 4…10 já foram emitidos. O relógio teria retrocedido, e relógio lógico nunca anda para trás. → teste `aoReceberCarimboMenorNaoRetrocede` (10 recebe 3 → 11).
+- **`+ 1` protege a ordem CAUSAL.** Sem ele, envio e recebimento teriam o mesmo carimbo. Carimbo igual significa "não sei ordenar" — falso aqui. → teste `aoReceberCarimboIgualDesempata` (5 recebe 5 → 6).
 
-- **O `+1` protege a ordem CAUSAL (entre processos).** Sem ele, o envio (na agência de origem) e o recebimento (na agência de destino) ficariam com o mesmo carimbo. Mas o envio **causou** o recebimento, então precisa ser estritamente menor. Carimbos iguais significam "não sei ordenar", o que seria falso nesse caso.
-  → Teste que prova: `aoReceberCarimboIgualDesempata` (contador em 5, recebe 5, resultado 6).
+Verificado por **mutação manual**: sem o `Math.max`, o teste do caso menor fica vermelho; sem o `+ 1`, os três testes de `aoReceber` ficam vermelhos.
 
-Ambas as metades foram verificadas por **teste de mutação manual**: removendo o `Math.max`, o teste do caso menor fica vermelho; removendo o `+ 1`, os três testes de `aoReceber` ficam vermelhos.
+### 6.4.2 — Contador em 10 recebendo timestamp 3: novo valor? Agências rápidas x lentas?
 
-### 6.4.2 — Se a Agência 0 está no evento 10 e recebe uma mensagem com timestamp 3, qual o novo valor do contador? O que isso implica sobre agências rápidas versus lentas?
+**11** — o local é maior, o `max` protege.
 
-6.4.2: Contador em 10, aoReceber(carimbo 3) → 11 (o local é maior — o max protege),
+Agência **rápida** ignora carimbos baixos (em 10, recebendo 3, avança só para 11): vizinho lento não a atrasa. Agência **lenta** salta (em 2, recebendo 7, pula para 8). Cada relógio anda no ritmo do **vizinho mais rápido com quem se comunica** — o contador não mede tempo nem trabalho, mede **posição na cadeia causal**.
 
-- A agência **rápida** (contador alto) praticamente **ignora** carimbos baixos: recebendo 3 estando em 10, apenas avança para 11. Um vizinho lento não consegue atrasá-la.
-- A agência **lenta** (contador baixo) **salta** ao receber um carimbo alto: estando em 2 e recebendo 7, pula direto para 8 — seis "tiques" de uma vez.
-- Consequência: o relógio de cada agência anda no ritmo do **vizinho mais rápido com quem ela se comunica**. O contador de Lamport não mede tempo de parede nem volume de trabalho realizado — mede **posição na cadeia causal**.
-
-**Observação sobre concorrência (limitação conhecida da suíte de testes):** o teste `eventoLocalEhSeguroSobConcorrencia` (100 threads simultâneas) expôs uma condição de corrida real — `contador++` não é atômico, e duas threads chegaram a produzir o mesmo carimbo (`expected: <100> but was: <99>`). Corrigido com `synchronized` em `incrementar()` e `aoReceber()`. O método `aoReceber()` tem exatamente a mesma corrida (ler-modificar-escrever sobre `contador`), mas foi protegido **por inspeção do código**, sem teste dedicado — a suíte cobre apenas `eventoLocal()`.
+**Concorrência:** `eventoLocalEhSeguroSobConcorrencia` (100 threads) expôs corrida real — `contador++` não é atômico e duas threads produziram o mesmo carimbo (`expected: <100> but was: <99>`). Corrigido com `synchronized`. O `aoReceber()` tem a mesma corrida e foi protegido **por inspeção**, sem teste dedicado.
 
 ---
 
-## Parte D — Transferências (seção 8.3)
+## Parte D — Transferências (8.3)
 
-### 8.3.1 — Por que a transferência local não precisa de `aoEnviar()`/`aoReceber()`, enquanto a transferência entre agências precisa?
+### 8.3.1 — Por que a transferência local dispensa `aoEnviar()`/`aoReceber()`?
 
-Porque as regras 2 e 3 de Lamport existem **para sincronizar relógios diferentes**, e na transferência local só existe **um** relógio.
+Porque as regras 2 e 3 existem **para sincronizar relógios diferentes**, e na local só existe **um** relógio: débito e crédito acontecem no mesmo processo, sobre o mesmo contador, e dois `eventoLocal()` sucessivos já bastam (teste `geraDoisEventosLocais`). Usar `aoEnviar`/`aoReceber` ali seria fingir uma mensagem que nunca existiu.
 
-Na transferência dentro da mesma agência, débito e crédito acontecem no mesmo processo, sobre o mesmo contador. A ordem entre eles já é garantida por dois `eventoLocal()` sucessivos (carimbos 1 e 2 no teste `geraDoisEventosLocais`): o processo é sequencial por definição, não há nada a sincronizar. Usar `aoEnviar`/`aoReceber` ali seria fingir que houve uma mensagem que nunca existiu.
+Entre agências há **mensagem real**: a origem faz `aoEnviar()` e anexa o carimbo; o destino faz `aoReceber(carimbo)` em `/creditar-remoto`. É esse par que propaga o "aconteceu-antes" entre processos.
 
-Na transferência entre agências existe uma **mensagem real** cruzando processos:
-- a origem faz `aoEnviar()` e anexa o carimbo à requisição (`TransferenciaService.transferirEntreAgencias`);
-- o destino faz `aoReceber(carimbo)` ao processar `/creditar-remoto` (`TransferenciaService.creditarRemoto`).
+Evidência no log: débito na agência 0 com carimbo 5, envio consumiu o 6, crédito remoto na agência 1 (que estava em 1) saiu com **7 = max(1, 6) + 1**. O salto de 1 para 7 é a causalidade viajando pela rede.
 
-É esse par que propaga a relação "aconteceu-antes" **entre** processos. Sem ele, os dois relógios evoluiriam de forma totalmente independente e a linha do tempo unificada não conseguiria afirmar que o débito precedeu o crédito.
+### 8.3.2 — O saldo da origem foi revertido? O que significa?
 
-Evidência no log: o débito na agência 0 saiu com carimbo 5, o envio consumiu o 6, e o crédito remoto na agência 1 — que estava em 1 — saiu com **7 = max(1, 6) + 1**. O salto de 1 para 7 é a causalidade viajando pela rede.
+**Não foi.** Reprodução (`evidencias/sprint1/falha-conhecida.png`): saldo da conta 0 em **R$ 35,00**, agência 1 derrubada (`fuser -k 4017/tcp`), transferência de R$ 20 → **HTTP 502**, saldo depois **R$ 15,00**.
 
-### 8.3.2 — Reproduza a falha conhecida. O saldo da conta de origem foi revertido? O que isso significa em termos de consistência?
-
-**Não foi revertido.** Reprodução (evidência em `evidencias/sprint1/falha-conhecida.png`):
-
-- saldo da conta 0 antes: **R$ 35,00**
-- agência 1 derrubada (`fuser -k 4017/tcp`)
-- `POST /transferencias {idOrigem:0, idDestino:1, valor:20}` → **HTTP 502**
-- saldo da conta 0 depois: **R$ 15,00**
-
-O log da agência 0 mostra a sequência:
 ```
 TRANSFERENCIA_DEBITO   Lamport  9   {valor:20, idDestino:1, idOrigem:0}
 TRANSFERENCIA_FALHOU   Lamport 11   {erro:"Connection refused", saldoOrigemAposDebito:15.00}
 ```
-(o carimbo 10 foi consumido pelo `aoEnviar()` da mensagem que nunca chegou.)
+O carimbo 10 foi consumido pelo `aoEnviar()` da mensagem que nunca chegou.
 
-**O que isso significa:** o sistema perdeu **atomicidade**. A transferência é logicamente uma operação só, mas é executada como duas escritas em processos diferentes, sem nada em volta que garanta "as duas ou nenhuma". Entre o débito e o crédito existe uma janela em que o dinheiro não está em conta nenhuma.
+**Significa perda de atomicidade.** A transferência é logicamente uma operação, mas executa como duas escritas em processos diferentes sem nada garantindo "as duas ou nenhuma". Entre débito e crédito o dinheiro não está em conta nenhuma, e a soma dos saldos das três agências deixa de ser invariante — nenhuma agência sozinha percebe, porque cada uma só enxerga a própria partição.
 
-Consequência prática: a soma dos saldos das três agências deixa de ser invariante. Não é um saldo "errado" numa conta — é o **sistema inteiro** ficando inconsistente, e nenhuma agência sozinha consegue perceber isso, porque cada uma só enxerga a própria partição.
+A escolha foi **falhar de forma visível**: o 502 diz que o débito foi aplicado e não revertido, e `TRANSFERENCIA_FALHOU` grava o saldo pós-débito, deixando rastro para reconciliação.
 
-A escolha aqui foi **falhar de forma visível** em vez de esconder: o 502 diz explicitamente que o débito foi aplicado e não revertido, e o evento `TRANSFERENCIA_FALHOU` grava o saldo pós-débito, deixando rastro para uma reconciliação futura.
+### 8.3.3 — Duas formas de corrigir no Sprint 4
 
-### 8.3.3 — Cite, em alto nível, duas formas possíveis de corrigir esse problema (Sprint 4).
+**1. Two-Phase Commit — atomicidade por bloqueio.** Um coordenador pergunta "consegue commitar?"; cada participante reserva recursos e responde sem efetivar; só com todos os "sim" vem o commit. *Custo:* bloqueante — se o coordenador cair após o prepare, os participantes ficam travados. Troca disponibilidade por consistência.
 
-**1. Two-Phase Commit (2PC) — atomicidade por bloqueio.**
-Um coordenador pergunta a todos os participantes "você consegue commitar?" (fase de preparação); cada um reserva os recursos e responde sim/não sem efetivar. Só se **todos** disserem sim o coordenador manda commitar. Aqui: a agência de origem reservaria o valor e a de destino confirmaria que a conta existe e aceita o crédito, antes de qualquer saldo mudar.
-*Custo:* é bloqueante. Se o coordenador cair depois do "prepare", os participantes ficam com recursos travados esperando indefinidamente. Sacrifica disponibilidade por consistência.
+**2. Saga — atomicidade por compensação.** A transferência vira passos locais, cada um com transação compensatória. Débito e crédito commitam separados; falhando o crédito, dispara-se o estorno — operação de negócio nova, não rollback técnico. *Custo:* aceita inconsistência **temporária**, mas não bloqueia.
 
-**2. Saga — atomicidade por compensação.**
-A transferência vira uma sequência de passos locais, cada um com uma **transação compensatória**. Débito e crédito são commitados separadamente; se o crédito falhar, dispara-se o compensador do débito (um estorno), que é uma operação de negócio nova, não um rollback técnico.
-*Custo:* aceita inconsistência **temporária** — existe uma janela real em que o dinheiro está "em trânsito". Em compensação não bloqueia ninguém e sobrevive melhor a falhas parciais.
-
-**Como o código já está preparado:** a chamada remota está atrás da porta `AgenciaRemota`, então trocar o protocolo é escrever um adapter novo, sem tocar em `TransferenciaService`. E a **idempotência** (funcionalidade adicional 2) já implementada é pré-requisito de Saga: passos compensatórios são reexecutados sob falha, e sem idempotência a retentativa aplicaria a operação duas vezes.
+**O código já ajuda:** a chamada remota está isolada em `AgenciaRemota`, então trocar o protocolo mexe numa classe só. E a **idempotência** já implementada é pré-requisito de Saga: passos compensatórios são reexecutados sob falha, e sem ela a retentativa aplicaria a operação duas vezes.
 
 ---
 
-## Parte E — Linha do tempo unificada (seção 10.3)
+## Parte E — Linha do tempo unificada (10.3)
 
-### 10.3.1 — O relógio garante `A → B ⟹ ts(A) < ts(B)`, mas não a volta. O que isso significa na prática?
+### 10.3.1 — Garante `A → B ⟹ ts(A) < ts(B)`, mas não a volta. E daí?
 
-Significa que `ts(A) < ts(B)` **não permite concluir nada**. Olhando dois eventos com carimbos 5 e 9, existem duas explicações possíveis e o relógio não distingue:
+`ts(A) < ts(B)` **não permite concluir nada**: ou A causou B, ou os dois são **concorrentes** e os contadores só estavam nesses valores. Logo a linha do tempo do `--mesclar-logs` é uma ordenação **plausível**, não a real — nunca contradiz a causalidade, mas inventa ordem onde não existe.
 
-1. A causou B (existe uma cadeia de mensagens ligando os dois), ou
-2. A e B são **concorrentes** — aconteceram em processos diferentes sem nenhuma comunicação entre eles, e os contadores simplesmente estavam nesses valores.
+O que se afirma com segurança é a **contrapositiva**: se `ts(A) >= ts(B)`, A definitivamente **não** causou B. Serve para excluir causalidade, não para provar.
 
-A implicação é direta: a linha do tempo produzida pelo `mesclar-logs` é uma ordenação **plausível**, não a ordem real. Ela nunca vai contradizer a causalidade (isso o relógio garante), mas inventa ordem onde não existe nenhuma.
+### 10.3.2 — Lamport sozinho distingue concorrência de precedência? Por que o vetorial?
 
-O que se pode afirmar com segurança é apenas a **contrapositiva**: se `ts(A) >= ts(B)`, então A definitivamente **não** causou B. É uma ferramenta para excluir causalidade, não para provar.
+**Não.** Um único inteiro colapsa a história de todos os processos numa dimensão só, e nessa projeção perde-se "quem sabia de quem".
 
-### 10.3.2 — O relógio de Lamport sozinho bastaria para distinguir com certeza "A e B são concorrentes" de "A aconteceu antes de B"? Por que isso motiva o relógio vetorial?
+O vetorial guarda **um contador por processo**: cada agência mantém `[c0, c1, c2]`, incrementa a própria posição e, ao receber, faz o máximo **posição a posição**. A comparação passa a ter três resultados: `V(A) < V(B)` em tudo → A antes de B; o inverso → B antes de A; nenhum dos dois → **concorrentes, com certeza**.
 
-**Não basta.** Um único inteiro colapsa a história de todos os processos numa dimensão só, e nessa projeção a informação de "quem sabia de quem" se perde.
+Por isso `Comparable` seria a abstração errada para o carimbo: promete ordem **total**, e o vetorial só oferece ordem **parcial** — interface prometendo o que a implementação não cumpre viola Liskov. `Carimbo` nasceu sem `Comparable` já no Sprint 1.
 
-O relógio vetorial resolve guardando **um contador por processo**: cada agência mantém `[c0, c1, c2]`, incrementa a própria posição nos eventos locais e, ao receber uma mensagem, faz o máximo **posição a posição**. O vetor deixa de ser um número e passa a ser um resumo de *tudo que aquele processo já soube de cada um dos outros*.
+### Observação do passo 3 (§10.2) — empates encontrados
 
-Com isso a comparação passa a ter três resultados em vez de dois:
-- `V(A) < V(B)` em todas as posições e estritamente menor em ao menos uma → **A aconteceu antes de B**
-- o inverso → B aconteceu antes de A
-- nenhum dos dois (cada vetor é maior em alguma posição) → **concorrentes**, com certeza
+`--mesclar-logs` achou **dois** empates numa execução comum (`evidencias/sprint1/linha-do-tempo.png`):
 
-É por isso que `Comparable` seria a abstração errada para o carimbo (ver a decisão de design abaixo): `Comparable` promete ordem **total**, e o vetorial só oferece ordem **parcial**. Uma interface que promete o que a implementação não pode cumprir viola o princípio de substituição de Liskov — e essa foi a razão de `Carimbo` ter nascido sem `Comparable` já no Sprint 1.
+**Lamport 1** — `agencia-0 CRIAR_CONTA` (12:50:00.541) e `agencia-1 CRIAR_CONTA` (12:50:01.452). **Concorrentes**: cada agência subiu e criou suas contas sem trocar mensagem.
 
-### Observação do passo 3 da tarefa (§10.2) — par de eventos com o mesmo timestamp
+**Lamport 7** — `agencia-1 TRANSFERENCIA_CREDITO_REMOTO` (12:50:01.872) e `agencia-0 TRANSFERENCIA_DEBITO` (12:50:01.959). Também **concorrentes**, e este é o caso interessante porque *parece* relacionado: o crédito remoto veio de uma transferência anterior (R$ 25) e o débito é de outra, posterior (R$ 10).
 
-A ferramenta `--mesclar-logs` encontrou **dois** empates numa execução comum (evidência em `evidencias/sprint1/linha-do-tempo.png`):
-
-**Empate em Lamport 1**
-```
-agencia-0  CRIAR_CONTA  (hora de parede 12:50:00.541)
-agencia-1  CRIAR_CONTA  (hora de parede 12:50:01.452)
-```
-São **concorrentes**. Cada agência subiu e criou suas contas iniciais sem trocar mensagem com a outra; os dois contadores foram de 0 para 1 de forma independente. Nenhum causou o outro.
-
-**Empate em Lamport 7**
-```
-agencia-1  TRANSFERENCIA_CREDITO_REMOTO  (12:50:01.872)
-agencia-0  TRANSFERENCIA_DEBITO          (12:50:01.959)
-```
-Também concorrentes — e este é o caso mais interessante, porque *parece* relacionado: os dois envolvem transferência. Mas o crédito remoto na agência 1 veio de uma transferência **anterior** (a de R$ 25), enquanto o débito na agência 0 é de uma transferência **posterior** (a de R$ 10). Não existe cadeia causal entre eles.
-
-**Comparando com a hora de parede:** neste caso as duas ordens coincidiram (a hora física respeitou a ordem de inserção), mas isso é **coincidência de as três agências rodarem na mesma máquina**, compartilhando o mesmo relógio de hardware. Com as agências em máquinas distintas, cujos relógios divergem por milissegundos ou segundos, a ordem por hora de parede poderia inverter-se sem que nada de errado tivesse acontecido. É exatamente por isso que `horaParede` é gravado no evento mas **nenhuma decisão do sistema o consulta** — ele existe só para esta comparação.
+**Contra a hora de parede:** as duas ordens coincidiram, mas isso é **coincidência de as 3 agências rodarem na mesma máquina**, com o mesmo relógio de hardware. Em máquinas distintas a ordem física poderia inverter sem nada estar errado. Por isso `horaParede` é gravado mas **nenhuma decisão do sistema o consulta**.
 
 ---
 
-## Parte F — Autenticação JWT (seção 11.3)
+## Parte F — Autenticação JWT (11.3)
 
-### Decisão de design: formato das credenciais
+### Decisão: formato das credenciais
 
-**Escolha: `<número da conta, senha>`.** `POST /auth/login` recebe `{"idConta": 0, "senha": "ana123"}`.
+**`<número da conta, senha>`** — `POST /auth/login` com `{"idConta": 0, "senha": "ana123"}`. A conta já é a identidade natural do sistema: é particionada por `id % 3` e aparece em toda operação. Criar uma entidade "usuário" separada exigiria um segundo modelo de identidade sem acrescentar nada ao que o sprint estuda.
 
-**Justificativa.** A conta já é a identidade natural deste sistema: ela é particionada por `id % 3`, aparece em toda operação e é o que o usuário conhece. Criar uma entidade "usuário" separada exigiria um segundo modelo de identidade e uma tabela de vínculo usuário↔conta, sem acrescentar nada ao que o sprint estuda (partição, relógio lógico, atomicidade).
+A credencial mora em `seguranca/`, **fora do modelo**: `Conta` cuida de dinheiro, senha é preocupação de autenticação. Armazenada com **BCrypt** — deliberadamente lento (encarece força bruta) e com salt por senha.
 
-**Onde a credencial mora:** em `infra/seguranca/`, **fora do domínio**. A classe `Conta` cuida de saldo e invariantes de dinheiro; senha é preocupação de autenticação. Se a senha morasse na `Conta`, mudar a política de senha exigiria editar a classe que guarda dinheiro — violação direta do princípio de responsabilidade única.
+**Detalhe:** conta inexistente devolve **401 genérico**, igual a senha errada — dizer "conta não existe" permitiria enumerar contas. Conta de **outra agência** devolve **400** apontando a agência certa: aí não é falha de credencial, é porta de entrada errada. **Expiração:** 15 min (`JWT_VALIDADE=900`).
 
-**Armazenamento:** BCrypt (`spring-security-crypto`), nunca texto puro. BCrypt é deliberadamente lento, o que encarece força bruta, e usa salt por senha.
+### Decisão: `creditar-remoto` carrega token?
 
-**Detalhe de segurança:** login com conta inexistente devolve **401 genérico** (`"credenciais invalidas"`), igual a senha errada. Dizer "conta não existe" permitiria a um atacante enumerar contas válidas antes de tentar senhas. Já conta de **outra agência** devolve **400** com a mensagem apontando a agência correta — aí não é falha de credencial, é porta de entrada errada, e esconder isso só atrapalharia o usuário legítimo.
+**Sim, mas NÃO o JWT do usuário** — usa um segredo de serviço no header `X-Agencia-Token`.
 
-**Expiração:** 15 minutos (`JWT_VALIDADE=900`), configurável por ambiente.
+1. **JWT identifica pessoa; quem chama é processo.** Repassar o token faria o destino acreditar que *a pessoa* pediu o crédito. É o **confused deputy**.
+2. **Tempo de vida incompatível.** O token expira em 15 min; a malha precisa funcionar sem ninguém logado.
+3. **Escopo diferente.** `/creditar-remoto` credita uma conta que não é a do chamador.
 
-### Decisão de design: a chamada interna `creditar-remoto` entre agências deve carregar token?
+No `FiltroJwt`, `X-Agencia-Token` válido libera a requisição como chamada de serviço — para qualquer rota, porque o extrato consolidado também precisa **ler** contas de outras agências.
 
-**Sim, mas NÃO o JWT do usuário.** Ela usa um **segredo de serviço compartilhado**, enviado no header `X-Agencia-Token` e configurado por ambiente (`AGENCIA_TOKEN`).
+**Limitação assumida:** é segredo compartilhado, não certificado por agência — identifica "alguém do cluster", não "a agência 1". Em produção seria mTLS ou token por serviço com escopo.
 
-Três razões:
+### 11.3.1 — Autenticação x autorização. Um usuário saca de conta alheia?
 
-**1. Um JWT identifica uma pessoa; quem chama `/creditar-remoto` é um processo.** Repassar o token do usuário faria a agência de destino acreditar que *a pessoa* está pedindo o crédito, quando na verdade é a agência de origem agindo em nome dela. Isso é o problema clássico do **confused deputy**: um componente privilegiado usa a autoridade de outro sem que ninguém tenha autorizado esse repasse.
+**Autenticação** = "quem é você?". **Autorização** = "você pode fazer isto?". São independentes.
 
-**2. Tempo de vida incompatível.** O token do usuário expira em 15 minutos. A comunicação entre agências precisa funcionar independentemente de haver alguém logado — uma retentativa ou uma operação em lote não pode falhar porque a sessão de uma pessoa acabou.
+**Minha implementação verifica apenas AUTENTICAÇÃO.** O `FiltroJwt` valida assinatura e expiração e libera; grava o usuário autenticado num atributo do request que **nenhum controller lê** — comprovável por `grep`:
 
-**3. Escopo diferente.** O JWT do usuário deveria autorizar operações *daquela conta*. `/creditar-remoto` credita uma conta que **não é** a do chamador — usar o token dele para isso confundiria os dois níveis de autorização.
+```
+grep -rn "ATRIBUTO_AUTENTICADO" agencia/src/main/java --include=*.java | grep -v seguranca/
+(vazio)
+```
 
-**Implementação** (`FiltroJwt`): se o header `X-Agencia-Token` bate com o segredo configurado, a requisição passa como chamada de serviço, sem exigir JWT. Isso vale para qualquer rota, porque o extrato consolidado também precisa **ler** contas de outras agências.
+**Resposta direta: sim, consegue — e pior do que parece.** Testado ao vivo, com o token da Ana (conta 0, login na agência 0) contra a agência 1:
 
-**Limitação assumida:** é um segredo compartilhado (autenticação simétrica), não um certificado por agência. Ele identifica "alguém do cluster", não "a agência 1 especificamente". Para produção o certo seria mTLS ou um token por serviço com escopo. Para o Sprint 1 isso já separa corretamente as duas identidades — pessoa e processo — que é o ponto conceitual.
+```
+GET http://localhost:4017/contas/1   →  HTTP 200
+{"id":1,"nomeAluno":"Bruno Lima","saldo":800.00,"agencia":1}
+```
 
-### 11.3.1 — Diferença entre autenticação e autorização. Sua implementação verifica as duas? Um usuário autenticado consegue sacar de uma conta que não é dele?
+O alcance é **entre agências**, não só dentro de uma. Duas decisões corretas isoladamente se somam num buraco: as 3 agências compartilham o `JWT_SEGREDO` (necessário para validação stateless) **e** ninguém compara o `sub` do token com o `{id}` da rota.
 
-**Autenticação** responde *"quem é você?"* — provar identidade. **Autorização** responde *"você pode fazer isto?"* — verificar permissão sobre um recurso específico. São independentes: dá para estar autenticado e não autorizado.
+É *Broken Object Level Authorization* (**OWASP API1**). Documentada aqui em vez de escondida.
 
-**Minha implementação verifica apenas AUTENTICAÇÃO.** O `FiltroJwt` valida a assinatura e a expiração do token e libera a requisição. Ele coloca o usuário autenticado num atributo (`FiltroJwt.ATRIBUTO_AUTENTICADO`), mas **nenhum controller compara** o `subject` do token com o id da conta que está sendo operada.
+**Correção:** comparar o `idConta` do token com o `{id}` do path e devolver **403** quando divergirem — 403 e não 401, porque a identidade é válida e o que falta é permissão; para o acesso cruzado, conferir também o claim `agencia`. Não implementado porque o roteiro pede autenticação (Parte F) e o sprint já inclui três funcionalidades adicionais. Dívida consciente.
 
-**Resposta direta à pergunta: sim, consegue.** Ana (conta 0) faz login, recebe um token, e pode chamar `POST /contas/3/sacar` — a conta do Diego, que também está na agência 0. O filtro só confere que ela tem um token válido; ninguém confere que a conta 3 é dela.
+### 11.3.2 — Por que validar a assinatura não consulta banco?
 
-**Isto é uma falha de segurança real**, e do tipo mais comum em APIs: *Broken Object Level Authorization* (OWASP API1). Está documentada aqui em vez de escondida.
+Porque a validação é **matemática, não busca**: a assinatura é `HMAC-SHA256(header + payload, chave)`, e validar é recalcular o HMAC com a chave em memória e comparar. Se bate, ficam provados de uma vez o não-adulteramento e o conhecimento da chave. O `payload` **carrega** os dados (`sub`, `nome`, `agencia`, `exp`) — não é uma chave para procurar informação, é a informação assinada.
 
-**Como seria corrigido:** no `ContaController`, comparar o `idConta` do token com o `{id}` do path e devolver **403 Forbidden** quando divergirem — 403, não 401, porque a identidade é válida; o que falta é permissão. A regra de "quem pode operar qual conta" pertenceria a uma camada de autorização, e — pelo mesmo raciocínio da idempotência — o lugar natural seria um **decorator** sobre os casos de uso, não um `if` espalhado por cada controller.
+Com sessão em memória o estado mora no servidor e validar exige consultar o armazenamento, o que obriga a sessão pegajosa ou a um Redis compartilhado. Com JWT o estado mora no cliente e validar é só CPU: qualquer instância atende qualquer requisição. No ICEIBank isso é concreto — as três agências compartilham o segredo, então um token da agência 0 é aceito pela 1 e pela 2 **sem trocarem mensagem**. Com sessão seria preciso um armazenamento comum: exatamente o componente compartilhado que uma arquitetura particionada tenta evitar.
 
-Não foi implementado porque o roteiro pede autenticação (Parte F) e o escopo do sprint já inclui três funcionalidades adicionais. Fica como dívida consciente e documentada.
+**O preço:** o token não pode ser revogado antes de expirar. Logout no cliente só apaga localmente. Mitigação usual: expiração curta (15 min) e refresh token.
 
-### 11.3.2 — Por que o servidor não precisa consultar banco para validar a assinatura de um JWT? Implicação sobre escalabilidade.
+### 11.3.3 — E se a chave secreta vazar?
 
-Porque a validação é **matemática, não uma busca**. O token tem três partes (`header.payload.assinatura`), e a assinatura é `HMAC-SHA(header + payload, chave_secreta)`. Para validar, o servidor recalcula o HMAC com a chave que já tem em memória e compara com a assinatura recebida. Se bate, duas coisas ficam provadas de uma vez: o conteúdo não foi adulterado, e quem emitiu conhecia a chave.
+**Comprometimento total.** Quem tem a chave **forja** tokens válidos — não precisa roubar token nem descobrir senha:
 
-O `payload` já **carrega** os dados (`sub`, `nome`, `agencia`, `exp`). Não é uma chave para procurar informação em outro lugar — é a informação, assinada.
-
-**Implicação sobre escalabilidade — a comparação que importa:**
-
-| | Sessão em memória | JWT |
-|---|---|---|
-| onde mora o estado | no servidor | no cliente |
-| validar exige | consultar o armazenamento de sessões | só CPU |
-| escalar horizontalmente | precisa de sessão pegajosa ou Redis compartilhado | qualquer instância atende qualquer requisição |
-| custo por requisição | uma ida à rede/disco | microssegundos de HMAC |
-
-No ICEIBank isso é concreto: as **três agências compartilham o mesmo segredo**, então um token emitido pela agência 0 é aceito pela 1 e pela 2 sem que elas troquem uma única mensagem. Com sessão em memória, cada agência precisaria de um armazenamento de sessões comum — mais um componente compartilhado, exatamente o que uma arquitetura particionada tenta evitar.
-
-**O preço:** o token não pode ser revogado antes de expirar. Como o servidor não consulta nada, ele não tem onde marcar "este token não vale mais". Logout no cliente só apaga o token localmente — se alguém tiver uma cópia, ela funciona até o `exp`. É o trade-off direto de ser stateless, e a mitigação usual é manter a expiração curta (aqui, 15 minutos) e usar refresh tokens.
-
-### 11.3.3 — O que aconteceria se a chave secreta de assinatura vazasse?
-
-**Comprometimento total da autenticação.** Quem tem a chave pode **forjar** tokens válidos — não precisa roubar nenhum token existente nem descobrir senha alguma.
-
-Com a chave, um atacante monta o payload que quiser e assina:
 ```json
 {"sub": "0", "nome": "Ana Souza", "agencia": 0, "exp": <daqui a um ano>}
 ```
-Esse token é **indistinguível** de um legítimo, porque a validação é só a verificação da assinatura. E como o sistema é stateless, não existe nenhuma consulta que pudesse desmentir o token.
 
-No ICEIBank o dano é agravado por duas escolhas:
-- as **três agências compartilham a mesma chave**, então o vazamento compromete o sistema inteiro, não uma agência;
-- o atacante escolhe o próprio `exp`, então o token forjado dura o que ele quiser.
+Indistinguível de um legítimo, porque validar é só verificar a assinatura, e sendo stateless não há consulta que o desminta. Agravantes: as **três agências compartilham a chave**, e o atacante escolhe o próprio `exp`. **Resposta ao incidente:** trocar a chave — invalida todos os tokens de uma vez, inclusive os legítimos, e é por isso que funciona.
 
-**Resposta ao incidente:** trocar a chave. Isso invalida **todos** os tokens de uma vez (os legítimos também — todo mundo é deslogado), e é justamente por isso que funciona.
+**Reduções de risco no projeto:** chave vem de `JWT_SEGREDO`, com o default do `application.yml` marcado como exclusivo de desenvolvimento (12-Factor III); `.env` no `.gitignore` desde o primeiro commit; `SegurancaProperties` valida no boot que o segredo tem ≥ 32 caracteres.
 
-**Como o projeto tenta reduzir o risco:**
-- a chave vem de variável de ambiente (`JWT_SEGREDO`), com o default no `application.yml` marcado como **exclusivo de desenvolvimento** — 12-Factor III;
-- `.env` está no `.gitignore` desde o primeiro commit, antes de existir qualquer segredo (segredo commitado permanece no histórico mesmo depois de deletado);
-- `SegurancaProperties` **valida no boot** que o segredo tem ≥ 32 caracteres; a jjwt recusa chave curta para HS256, e a validação falha cedo em vez de na primeira requisição.
+**Correção feita na revisão:** o `JwtService` chamava `signWith(chave)` **sem informar o algoritmo**, e a jjwt escolhia pelo tamanho da chave — com o segredo de 62 bytes do `application.yml` o token saía em **HS384**, contrariando o comentário do código. Trocar `JWT_SEGREDO` mudaria a criptografia sem ninguém notar. Agora é **HS256 explícito**, e `JwtServiceTest` trava isso com dois segredos de tamanhos diferentes.
 
-**O que faltaria em produção:** rotação periódica de chave com `kid` no header (permitindo aceitar a chave antiga por uma janela), gerenciamento por um cofre (AWS Secrets Manager, Vault) em vez de variável de ambiente, e assinatura assimétrica (RS256) — assim as agências verificariam com a chave **pública** e só o emissor teria a privada, reduzindo drasticamente a superfície de vazamento.
+**Faltaria em produção:** rotação com `kid` no header, cofre de segredos e assinatura assimétrica (RS256) — as agências verificariam com a chave pública e só o emissor teria a privada.
 
 ---
 
-## Parte G — Frontend (seção 12.3)
+## Parte G — Frontend (12.3)
 
-### 12.3.1 — Como o frontend "lembra" de reenviar o token a cada requisição?
+### 12.3.1 — Como o frontend reenvia o token?
 
-Um **único módulo** (`src/modelo/api.js`) sabe da existência do token. Nenhuma tela monta header de autenticação.
-
-O fluxo:
-1. `POST /auth/login` devolve `{token, expiraEmSegundos, ...}`.
-2. `guardarSessao()` grava em `localStorage` (`iceibank.token` e `iceibank.sessao`).
-3. Toda chamada passa pela função interna `requisitar()`, que lê o token e injeta `Authorization: Bearer <token>` antes do `fetch`.
+Um **único módulo** (`src/modelo/api.js`) sabe que o token existe; nenhuma tela monta header de autenticação. O login devolve `{token, expiraEmSegundos}`, `guardarSessao()` grava em `localStorage`, e toda chamada passa por `requisitar()`:
 
 ```js
-async function requisitar(idAgencia, caminho, opcoes = {}) {
-  const cabecalhos = { 'Content-Type': 'application/json', ...(opcoes.headers ?? {}) }
-  const token = tokenAtual()
-  if (token) cabecalhos.Authorization = `Bearer ${token}`
-  ...
+const cabecalhos = { 'Content-Type': 'application/json', ...(opcoes.headers ?? {}) }
+const token = tokenAtual()
+if (token) cabecalhos.Authorization = `Bearer ${token}`
+```
+
+É o padrão **interceptor**: as telas chamam `api.depositar(...)` sem saber que autenticação existe, e há um só lugar para mudar — se o token virar cookie `HttpOnly`, muda `api.js` e nenhuma tela é tocada.
+
+`localStorage` mantém a sessão entre recarregamentos. Trade-off conhecido: é acessível por JavaScript, logo vulnerável a XSS. Cookie `HttpOnly` + `SameSite` seria mais seguro; escolhi `localStorage` por ser o que o roteiro sugere e por manter o backend stateless sem lidar com CSRF.
+
+### 12.3.2 — Se o token expirar no meio de uma operação, a interface avisa?
+
+**Sim, em dois momentos.** Antes: a barra mostra contagem regressiva (`token 154s`) calculada por `useAutenticacao`, e abaixo de 20 s o número muda de cor. Depois: o `App.jsx` intercepta o 401 antes do erro genérico aparecer.
+
+```js
+if (erro instanceof ErroDaApi && erro.http === 401) {
+  doErro(new ErroDaApi(401, 'Seu token expirou. Faça login novamente para continuar.'))
+  setTimeout(sair, 2500)
+  return
 }
 ```
 
-É o padrão **interceptor**: as telas chamam `api.depositar(...)` e não sabem que autenticação existe. A vantagem prática é ter um só lugar para mudar — se amanhã o token virar cookie `HttpOnly`, muda-se `api.js` e nenhuma tela é tocada.
+A pessoa vê a faixa com o título **"Sessão expirada"**, o código HTTP e a frase em português; 2,5 s depois volta o login — tempo de ler sem ficar presa numa tela morta. **Não é erro genérico nem fica no console:** `useAlerta` traduz cada código num título legível (`401 → "Sessão expirada"`, `502 → "Falha entre agências"`, `503 → "Agência fora do ar"`). Há ainda o botão **"Expirar token"**, que invalida na hora — existe para produzir o print `auth-token-expirado.png` sem esperar 15 minutos.
 
-`localStorage` (e não memória) mantém a sessão através de recarregamentos de página. O trade-off é conhecido: `localStorage` é acessível por JavaScript, então é vulnerável a XSS. Um cookie `HttpOnly` + `SameSite` seria mais seguro; foi escolhido `localStorage` por ser o que o roteiro sugere e por manter o backend stateless sem lidar com CSRF.
+### 12.3.3 — Onde ficam o M, o V e o C?
 
-### 12.3.2 — O que acontece se o token expirar no meio de uma operação? A interface avisa?
-
-**Sim, avisa em tela — em dois momentos, antes e depois.**
-
-**Antes (aviso preventivo).** A barra do produto mostra uma contagem regressiva do token (`token 154s`), calculada por `useAutenticacao` a partir do `expiraEmSegundos` do login. Abaixo de 20 segundos o número muda para `--color-accent-800`, avisando visualmente antes de qualquer erro acontecer.
-
-**Depois (tratamento do 401).** Se a expiração pegar uma requisição em andamento, o backend devolve 401 e o `App.jsx` intercepta **antes** que o erro genérico apareça:
-
-```js
-const tratar = useCallback((erro) => {
-  if (erro instanceof ErroDaApi && erro.http === 401) {
-    doErro(new ErroDaApi(401, 'Seu token expirou. Faça login novamente para continuar.'))
-    setTimeout(sair, 2500)
-    return
-  }
-  doErro(erro)
-}, [doErro, sair])
-```
-
-A pessoa vê a faixa de alerta com o título **"Sessão expirada"**, o código **HTTP 401** e a frase em português explicando o que fazer. Dois segundos e meio depois a sessão é limpa e a tela de login volta — tempo suficiente para ler a mensagem, sem deixar a pessoa presa numa tela que não funciona mais.
-
-**Não é um erro genérico e não fica só no console.** O `useAlerta` traduz cada código HTTP num título legível (`401 → "Sessão expirada"`, `502 → "Falha entre agências"`, `503 → "Agência fora do ar"`), e a faixa de alerta é renderizada em todas as telas.
-
-Há ainda o botão **"Expirar token"** na barra, que invalida o token na hora — existe justamente para produzir o print `auth-token-expirado.png` sem esperar 15 minutos.
-
-### 12.3.3 — No seu frontend, onde ficam o M, o V e o C?
-
-A separação é **explícita na estrutura de pastas**, não implícita:
+A separação é **explícita na estrutura de pastas**:
 
 ```
 frontend/src/
-├── modelo/            ← MODEL
-│   ├── api.js         acesso à API das 3 agências + gestão do token
-│   ├── agencias.js    malha, portas e a regra de partição (id % 3)
-│   └── formato.js     moeda pt-BR, hora de parede, rótulos de evento
-│
-├── visao/             ← VIEW
-│   ├── Login.jsx, Painel.jsx, Movimentacao.jsx, Transferencia.jsx,
-│   │   Historico.jsx, Extrato.jsx, LinhaDoTempo.jsx, Layout.jsx
-│   └── componentes/Base.jsx   (Blueprint, Alerta, Campo, Segmentado, Tag, ícones)
-│
-└── controle/          ← CONTROLLER
-    ├── useAutenticacao.js   sessão, token, contagem regressiva
-    └── useAlerta.js         traduz erro HTTP em mensagem de tela
-        + App.jsx            orquestra estado, chamadas e navegação
+├── modelo/     ← MODEL       api.js · agencias.js (regra id % 3) · formato.js
+├── visao/      ← VIEW        Login, Painel, Movimentacao, Transferencia,
+│                             Historico, Extrato, LinhaDoTempo, Layout
+└── controle/   ← CONTROLLER  useAutenticacao · useAlerta · App.jsx
 ```
 
-**Model** — sabe falar com o servidor e como os dados se parecem. Não sabe que React existe. `agencias.js` inclusive **duplica a regra de partição** do backend, de propósito: permite recusar no cliente uma operação sobre conta de outra agência com uma mensagem melhor, sem ida ao servidor. A validação é repetida no backend, porque validação de cliente é conveniência, nunca segurança.
+**Model** sabe falar com o servidor e como os dados se parecem; não sabe que React existe. `agencias.js` **duplica de propósito** a regra de partição do backend, para recusar no cliente uma operação sobre conta de outra agência com mensagem melhor — a validação é repetida no servidor, porque validação de cliente é conveniência, nunca segurança.
 
-**View** — componentes de apresentação. **Nenhum deles chama `fetch`.** Recebem dados e callbacks por props e devolvem JSX. É por isso que `Movimentacao.jsx` serve para depósito e saque: a diferença é uma prop.
+**View** são componentes de apresentação e **nenhum chama `fetch`**: recebem dados e callbacks por props. É por isso que `Movimentacao.jsx` serve para depósito e saque — a diferença é uma prop.
 
-**Controller** — os hooks e o `App.jsx`. É onde mora o estado, onde as chamadas ao Model acontecem, e onde o erro HTTP vira mensagem em português.
+**Controller** são os hooks e o `App.jsx`: onde mora o estado, onde as chamadas ao Model acontecem e onde erro HTTP vira mensagem em português.
 
-**Ficou claro ou misturado?** Ficou claro nas fronteiras, com uma concessão honesta: o `App.jsx` acumula o papel de controller de todas as telas e passou de 200 linhas. Se o projeto crescesse, o caminho natural seria um hook de controller por tela (`usePainel`, `useTransferencia`), mantendo o `App` só com roteamento. Está anotado como dívida.
+**Ficou claro ou misturado?** Claro nas fronteiras, com uma concessão honesta: o `App.jsx` acumula o papel de controller de todas as telas e passou de 200 linhas. Crescendo o projeto, o caminho seria um hook por tela (`usePainel`, `useTransferencia`), deixando o `App` só com navegação. Fica como dívida.
 
-Vale notar que essa é **a mesma separação do backend**, aplicada de novo: `modelo` ↔ `dominio`, `visao` ↔ `infra/web`, `controle` ↔ `aplicacao`. MVC e Ports & Adapters não competem — o MVC é como a camada de apresentação se organiza dentro do adapter de entrada.
+O backend usa **o mesmo vocabulário**: `controle` recebe HTTP, `servico` orquestra, `modelo` guarda a regra, `repositorio` persiste. A simetria foi proposital.
 
 ---
 
-## Funcionalidades adicionais (seção 2.1)
+## Funcionalidades adicionais (2.1)
 
 Foram implementadas **três** (o roteiro exige pelo menos uma).
 
----
-
 ### 1. Histórico de transações por conta
 
-**O que faz:** `GET /contas/{id}/historico?limite=N` devolve os últimos eventos que envolvem aquela conta, do mais recente para o mais antigo, cada um com seu carimbo de Lamport, tipo, detalhes e hora de parede.
+`GET /contas/{id}/historico?limite=N` devolve os últimos eventos que envolvem a conta, do mais recente ao mais antigo, com carimbo de Lamport, tipo, detalhes e hora de parede.
 
-**Por que escolhi:** é a contrapartida natural do registro de eventos que o sprint já exige. O `.jsonl` era escrito e nunca lido pela aplicação — o histórico transforma o log de artefato de depuração em funcionalidade de produto.
+**Por quê:** é a contrapartida natural do registro de eventos que o sprint já exige — o `.jsonl` era escrito e nunca lido pela aplicação. O histórico transforma o log de artefato de depuração em funcionalidade de produto.
 
-**Decisão de design:** criei uma **porta separada** para leitura (`ConsultaEventos`) em vez de acrescentar um método a `RegistroEventos`. Motivo: quem escreve (`ContaService`, `TransferenciaService`) não precisa conhecer a operação de leitura, e vice-versa — Interface Segregation. É o embrião da separação entre caminho de escrita e de leitura (CQRS). `RegistroEventosJsonl` implementa as duas interfaces; quem consome enxerga só a que precisa.
-
-**Filtragem:** o adapter procura o id da conta nos campos `id`, `idConta`, `idOrigem` e `idDestino` dos detalhes, então uma transferência aparece no histórico das **duas** contas envolvidas.
-
-**Testes:** `ContaServiceTest` (ordem, limite, conta inexistente) e `ContaControllerTest.historicoDaConta`.
-
----
+A busca procura o id nos campos `id`, `idConta`, `idOrigem` e `idDestino`, então uma transferência aparece no histórico das **duas** contas. **Testes:** `ContaServiceTest` (ordem, limite, conta inexistente) e `ContaControllerTest.historicoDaConta`.
 
 ### 2. Idempotência de transferências
 
-**O que faz:** o cliente envia `Idempotency-Key: <valor>` (header, convenção de mercado) ou `chaveIdempotencia` no corpo. A primeira requisição executa; reenvios da **mesma chave** devolvem o recibo original com `reenvio: true`, **sem debitar de novo**.
+O cliente envia `Idempotency-Key: <valor>` (header, convenção de mercado) ou `chaveIdempotencia` no corpo. A primeira requisição executa; reenvios da **mesma chave** devolvem o recibo original com `reenvio: true`, **sem debitar de novo**.
 
-**Por que escolhi:** é o extra com maior conteúdo de sistemas distribuídos. Reenvio não é hipótese acadêmica — é o que acontece quando a resposta se perde e o cliente tenta de novo, exatamente o cenário da falha da Parte D. E é **pré-requisito de Saga**: passos compensatórios são reexecutados sob falha, e sem idempotência a retentativa aplicaria a operação duas vezes. Prepara o Sprint 4 de verdade.
-
-**Decisão de design — Decorator, não `if`:**
-```java
-new TransferenciaIdempotente( new TransferenciaService(...), registroIdempotencia )
-```
-`TransferenciaService` **nunca foi editado** para ganhar idempotência: comportamento novo sem modificar código existente é Open/Closed literal. E cada classe tem um motivo para mudar — uma sabe transferir, a outra sabe deduplicar.
+**Por quê:** é o extra com mais conteúdo de sistemas distribuídos. Reenvio não é hipótese acadêmica — é o que acontece quando a resposta se perde e o cliente tenta de novo, exatamente o cenário da falha da Parte D. E é **pré-requisito de Saga**.
 
 **Quatro sutilezas resolvidas:**
-- **Guarda o recibo, não um booleano.** O reenvio devolve a *mesma* resposta; senão o cliente veria comportamentos diferentes para a mesma requisição.
+- **Guarda o recibo, não um booleano** — o reenvio devolve a *mesma* resposta.
 - **A chave vem do cliente.** Se o servidor a gerasse, cada reenvio teria chave nova e a deduplicação não faria nada.
-- **Corrida resolvida na porta.** A interface expõe `executarUmaVez(chave, ordem, operacao)` em vez de `consultar` + `guardar` — com dois métodos, duas requisições simultâneas passariam ambas pela consulta antes de qualquer gravação. O adapter usa `ConcurrentHashMap.computeIfAbsent`, que é atômico por chave.
-- **Mesma chave com dados diferentes → 409.** Devolver calado o recibo de outra operação seria pior que gritar.
-- **Falha não é memorizada.** Se a operação lança, nada é gravado: a retentativa é permitida.
+- **Corrida resolvida com `computeIfAbsent`**, atômico por chave; um `if (contém) … else grava` deixaria duas requisições simultâneas passarem.
+- **Mesma chave com dados diferentes → 409**, e **falha não é memorizada**: se a operação lança, nada é gravado e a retentativa é permitida.
 
-**Testes:** `TransferenciaServiceTest.Idempotencia` — 5 casos (reenvio não debita duas vezes, chaves diferentes aplicam duas vezes, sem chave aplica sempre, conflito de payload, falha não memorizada).
+**Nota de arquitetura:** nasceu como *Decorator* (`TransferenciaIdempotente` envolvendo `TransferenciaService`), pelo argumento Open/Closed. Na revisão final foi trazido para dentro do próprio `executar()`: a indireção custava uma interface, uma classe e um salto de leitura para uma política que ninguém mais ia reutilizar. Comportamento e testes iguais.
 
----
+**Testes:** `TransferenciaServiceTest.Idempotencia` — 5 casos.
 
 ### 3. Extrato consolidado
 
-**O que faz:** `GET /extrato-consolidado?contas=0,4` soma os saldos de várias contas do mesmo titular, **mesmo em agências diferentes**. Para cada conta, a agência decide pela regra de partição se busca localmente ou faz uma chamada remota.
+`GET /extrato-consolidado?contas=0,4` soma saldos de várias contas do mesmo titular, **mesmo em agências diferentes**; para cada conta a agência decide pela regra de partição se busca local ou remotamente. Ana Souza tem a conta 0 (agência 0) e a 4 (agência 1): o extrato devolve `total: 1250.00`.
 
-Demonstração real: Ana Souza tem a conta 0 (agência 0) e a conta 4 (agência 1). O extrato devolve `total: 1250.00` — R$ 1.000 da agência 0 mais R$ 250 da agência 1.
+**Por quê:** é a primeira **leitura distribuída** do sistema, e expõe um limite que nenhuma outra parte do sprint mostra.
 
-**Por que escolhi:** é a primeira **leitura distribuída** do sistema, e ela expõe um limite que nenhuma outra parte do sprint mostra.
-
-**O limite que ele revela — e que está no código:** o total **não é um snapshot atômico**. As agências são consultadas uma a uma e uma transferência pode acontecer entre duas leituras, produzindo um total que nunca existiu em nenhum instante. Por isso o resultado carrega o campo `consistente`, e cada conta carrega `disponivel`: se uma agência não responder, o extrato devolve um total **rotulado como parcial** em vez de um número errado sem aviso.
-
-Isso é a leitura sofrendo do mesmo problema que a escrita sofre na Parte D — e é a mesma família de solução (snapshot consistente, leitura em duas fases) que o Sprint 4 vai discutir.
-
-**Decisão de design:** outra porta separada, `ConsultaContaRemota`, distinta de `AgenciaRemota` (que escreve). Quem só transfere não precisa poder ler remotamente; quem só consolida não precisa poder creditar.
+**O limite, que está no código:** o total **não é snapshot atômico**. As agências são consultadas uma a uma e uma transferência pode acontecer entre duas leituras, produzindo um total que nunca existiu. Por isso o resultado carrega `consistente` e cada conta carrega `disponivel`: se uma agência não responder, devolve-se um total **rotulado como parcial** em vez de um número errado sem aviso. É a leitura sofrendo do mesmo problema que a escrita sofre na Parte D.
 
 **Evidência:** `evidencias/sprint1/funcionalidade-adicional.png`
 
@@ -369,14 +258,15 @@ Isso é a leitura sofrendo do mesmo problema que a escrita sofre na Parte D — 
 
 ## Declaração de uso de IA
 
-_(PREENCHER — este texto é um rascunho; ajuste para descrever com precisão o que de fato aconteceu, porque é você quem assina.)_
+_(PREENCHER — rascunho; ajuste para descrever com precisão o que aconteceu, porque é você quem assina.)_
 
-Utilizei o Claude (Anthropic) como apoio ao longo do sprint, nos seguintes papéis:
+Utilizei o Claude (Anthropic) como apoio ao longo do sprint:
 
-- **Explicação conceitual e revisão socrática** na primeira metade do projeto: o relógio de Lamport, o particionamento e o modelo de domínio (`Conta`, `Particionador`, `RelogioLamport`) foram escritos por mim, com a IA revisando cada ciclo de TDD, apontando erros e explicando o porquê — incluindo o bug de fronteira em `Particionador` (`> 1` onde devia ser `> 0`), a condição de corrida no contador do relógio e a armadilha de imutabilidade do `BigDecimal`.
-- **Geração de código sob orientação** na segunda metade (camada web, transferências, JWT, frontend), por restrição de prazo, sempre seguindo decisões de arquitetura que eu havia tomado antes: Ports & Adapters, Decorator para idempotência, filtro JWT escrito à mão em vez de Spring Security, carimbo opaco em vez de `int`.
+- **Explicação conceitual e revisão socrática** na primeira metade: o relógio de Lamport, o particionamento e o modelo (`Conta`, `Particionador`, `RelogioLamport`) foram escritos por mim, com a IA revisando cada ciclo de TDD e explicando os erros — o bug de fronteira no `Particionador` (`> 1` onde devia ser `> 0`), a condição de corrida no contador e a armadilha de imutabilidade do `BigDecimal`.
+- **Geração de código sob orientação** na segunda metade (camada web, transferências, JWT, frontend), por restrição de prazo, seguindo decisões que eu havia tomado antes: filtro JWT à mão em vez de Spring Security, carimbo opaco em vez de `int`, falha da Parte D registrada em vez de escondida.
+- **Revisão crítica da entrega**, que produziu duas correções reais: o algoritmo do JWT saindo em HS384 sem ninguém saber (11.3.3) e o alcance do problema de autorização, que é entre agências e não apenas dentro de uma (11.3.1).
 - **Revisão de texto** deste documento.
 
-Sou capaz de explicar e defender qualquer trecho entregue. As decisões de design registradas neste arquivo — por que o carimbo não implementa `Comparable`, por que a idempotência é um decorator, por que a chamada entre agências não carrega JWT de usuário, por que a falha da Parte D não é revertida — foram discutidas e decididas por mim antes de virarem código.
+Sou capaz de explicar e defender qualquer trecho entregue. As decisões registradas aqui — por que o carimbo não implementa `Comparable`, por que a chamada entre agências não carrega JWT de usuário, por que a falha da Parte D não é revertida, por que as portas de uma implementação só foram removidas — foram decididas por mim antes de virarem código.
 
-**Limitação conhecida e documentada por escolha própria:** a implementação verifica autenticação mas não autorização por recurso (ver questão 11.3.1). Optei por registrar isso em vez de omitir.
+**Limitação documentada por escolha própria:** a implementação verifica autenticação mas não autorização por recurso (11.3.1). Optei por registrar em vez de omitir.
