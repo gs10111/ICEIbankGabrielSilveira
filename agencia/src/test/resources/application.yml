@@ -1,0 +1,15 @@
+# Config usada só nos testes: agencia 0, pasta de dados temporária.
+agencia:
+  id: 0
+  total: 3
+  pasta-dados: target/dados-de-teste
+  urls:
+    - http://localhost:4016
+    - http://localhost:4017
+    - http://localhost:4018
+server:
+  port: 0
+seguranca:
+  segredo-jwt: segredo-de-teste-com-mais-de-32-caracteres-ok
+  validade-em-segundos: 900
+  token-entre-agencias: token-de-teste-entre-agencias
