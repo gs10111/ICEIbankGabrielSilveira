@@ -1,0 +1,31 @@
+# Defaults de DESENVOLVIMENTO. Toda chave aceita override por variavel de ambiente
+# (Spring Boot relaxed binding: AGENCIA_ID -> agencia.id, SERVER_PORT -> server.port).
+#
+#   AGENCIA_ID=1 SERVER_PORT=4017 mvn spring-boot:run
+#
+# OFFSET pessoal = 16 (dois ultimos digitos do RA 1466316) -> portas 4016/4017/4018.
+agencia:
+  id: ${AGENCIA_ID:0}
+  total: 3
+  pasta-dados: ${AGENCIA_PASTA_DADOS:data}
+  urls: ${AGENCIA_URLS:http://localhost:4016,http://localhost:4017,http://localhost:4018}
+
+server:
+  port: ${SERVER_PORT:4016}
+
+spring:
+  application:
+    name: iceibank-agencia
+
+logging:
+  level:
+    br.pucminas.iceibank: INFO
+
+# PARTE F — autenticacao.
+# O segredo tem default so para desenvolvimento; em producao vem de JWT_SEGREDO.
+# As 3 agencias compartilham o mesmo segredo, entao um token emitido por qualquer
+# uma vale nas outras (stateless de verdade).
+seguranca:
+  segredo-jwt: ${JWT_SEGREDO:iceibank-sprint1-segredo-de-desenvolvimento-trocar-em-producao}
+  validade-em-segundos: ${JWT_VALIDADE:900}
+  token-entre-agencias: ${AGENCIA_TOKEN:token-interno-das-agencias-iceibank}
