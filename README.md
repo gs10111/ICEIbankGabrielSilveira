@@ -20,23 +20,26 @@ Aluno: **gabriel silveira** · RA 1466316 (OFFSET **16** → portas 4016/4017/40
 | Persistência | em memória (Sprint 1 não exige banco) |
 | Log de eventos | arquivo `.jsonl`, uma linha JSON por evento |
 
-## Arquitetura — Ports & Adapters
+## Arquitetura — MVC
 
 ```
-dominio/      Conta, Particionador, RelogioLamport, Carimbo, Evento   ← ZERO Spring
-aplicacao/    ContaService, TransferenciaService, ExtratoConsolidado  ← casos de uso
-   porta/     ContaRepositorio, RegistroEventos, ConsultaEventos,
-              AgenciaRemota, ConsultaContaRemota, RegistroIdempotencia
-infra/        web/ memoria/ arquivo/ remoto/ seguranca/ config/ ferramentas/
+controle/     Controllers e DTOs            ← traduz HTTP, nada mais
+servico/      ContaService, TransferenciaService, ExtratoConsolidadoService,
+              AgenciaRemota (cliente REST das outras agências)
+modelo/       Conta, Particionador, RelogioLamport, Carimbo, Evento   ← ZERO Spring
+repositorio/  ContaRepositorio, RegistroDeEventos, RegistroDeIdempotencia
+seguranca/    FiltroJwt, JwtService, credenciais
+config/       AgenciaProperties, beans, carga inicial
 ```
 
-**Regra:** as dependências apontam sempre para dentro — `infra → aplicacao → dominio`.
-Verificação executável:
+O **modelo** é a única camada sem anotação de framework — por isso as regras de
+negócio testam sem subir Spring. Verificação executável:
 
 ```bash
-grep -r "org.springframework" agencia/src/main/java/br/pucminas/iceibank/dominio/   # vazio
-grep -r "infra" agencia/src/main/java/br/pucminas/iceibank/aplicacao/               # vazio
+grep -r "org.springframework" agencia/src/main/java/br/pucminas/iceibank/modelo/   # vazio
 ```
+
+O mesmo vocabulário vale no frontend: `modelo/` · `visao/` · `controle/`.
 
 ---
 
@@ -134,7 +137,7 @@ O **mesmo jar** roda como as três agências sem recompilar. No Sprint 4, o
 ## Testes
 
 ```bash
-cd agencia && mvn test        # 72 testes
+cd agencia && mvn test        # 75 testes
 ```
 
 | Suíte | Testes | O que cobre |
@@ -144,13 +147,15 @@ cd agencia && mvn test        # 72 testes
 | `ContaTest` | 6 | invariantes de saldo, `BigDecimal` |
 | `ContaServiceTest` | 16 | casos de uso + Lamport aplicado + histórico |
 | `TransferenciaServiceTest` | 14 | local, entre agências, **falha conhecida**, idempotência |
-| `ContaRepositorioEmMemoriaTest` | 4 | adapter de persistência |
-| `RegistroEventosJsonlTest` | 3 | formato `.jsonl` |
+| `ContaRepositorioTest` | 4 | persistência em memória |
+| `RegistroDeEventosTest` | 3 | formato `.jsonl` |
+| `JwtServiceTest` | 3 | algoritmo HS256 fixo, claims, token de outro emissor |
 | `ContaControllerTest` | 7 | rotas, códigos HTTP, validação |
 | `AutenticacaoTest` | 10 | os 3 cenários da Parte F + login + chamada interna |
 
-Os testes de domínio e aplicação (**48 dos 72**) rodam **sem subir o Spring** — é o
-retorno prático da arquitetura hexagonal.
+**58 dos 75** rodam **sem subir o Spring** (modelo, serviços e repositórios) e
+terminam em menos de um segundo. Só `ContaControllerTest` e `AutenticacaoTest`
+levantam o contexto.
 
 ---
 
