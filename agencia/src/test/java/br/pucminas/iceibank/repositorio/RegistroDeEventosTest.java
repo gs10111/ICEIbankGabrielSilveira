@@ -1,5 +1,6 @@
 package br.pucminas.iceibank.repositorio;
 
+import br.pucminas.iceibank.config.AgenciaProperties;
 import br.pucminas.iceibank.modelo.evento.Evento;
 import br.pucminas.iceibank.modelo.relogio.CarimboLamport;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -16,7 +17,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class RegistroEventosJsonlTest {
+class RegistroDeEventosTest {
 
     @TempDir
     Path pastaTemporaria;
@@ -24,7 +25,7 @@ class RegistroEventosJsonlTest {
     @Test
     @DisplayName("grava uma linha JSON por evento, no formato do roteiro")
     void gravaUmaLinhaJsonPorEvento() throws IOException {
-        RegistroEventosJsonl registro = new RegistroEventosJsonl("agencia-0", pastaTemporaria);
+        RegistroDeEventos registro = new RegistroDeEventos(configuracao(0, pastaTemporaria));
 
         Evento evento = registro.registrar("CRIAR_CONTA", new CarimboLamport(1),
                 Map.of("id", 0, "nomeAluno", "Ana"));
@@ -45,7 +46,7 @@ class RegistroEventosJsonlTest {
     @Test
     @DisplayName("eventos sao acrescentados ao arquivo, nunca sobrescritos")
     void acrescentaSemSobrescrever() throws IOException {
-        RegistroEventosJsonl registro = new RegistroEventosJsonl("agencia-0", pastaTemporaria);
+        RegistroDeEventos registro = new RegistroDeEventos(configuracao(0, pastaTemporaria));
 
         registro.registrar("CRIAR_CONTA", new CarimboLamport(1), Map.of("id", 0));
         registro.registrar("DEPOSITO", new CarimboLamport(2), Map.of("id", 0, "valor", 25));
@@ -56,8 +57,15 @@ class RegistroEventosJsonlTest {
     @Test
     @DisplayName("o nome do arquivo identifica a agencia")
     void nomeDoArquivoIdentificaAgencia() {
-        RegistroEventosJsonl registro = new RegistroEventosJsonl("agencia-2", pastaTemporaria);
+        RegistroDeEventos registro = new RegistroDeEventos(configuracao(2, pastaTemporaria));
 
         assertThat(registro.caminhoArquivo().getFileName().toString()).isEqualTo("eventos-agencia-2.jsonl");
+    }
+
+    /** A configuracao de uma agencia apontando para a pasta temporaria do teste. */
+    private static AgenciaProperties configuracao(int id, Path pasta) {
+        return new AgenciaProperties(id, 3,
+                List.of("http://localhost:4016", "http://localhost:4017", "http://localhost:4018"),
+                pasta.toString());
     }
 }

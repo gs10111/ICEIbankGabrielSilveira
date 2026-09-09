@@ -1,7 +1,7 @@
 package br.pucminas.iceibank.servico;
 
-import br.pucminas.iceibank.servico.ConsultaEventos;
-import br.pucminas.iceibank.servico.RegistroEventos;
+import br.pucminas.iceibank.config.AgenciaProperties;
+import br.pucminas.iceibank.repositorio.RegistroDeEventos;
 import br.pucminas.iceibank.modelo.conta.Conta;
 import br.pucminas.iceibank.modelo.conta.ContaJaExisteException;
 import br.pucminas.iceibank.modelo.conta.ContaNaoEncontradaException;
@@ -12,7 +12,7 @@ import br.pucminas.iceibank.modelo.particao.Particionador;
 import br.pucminas.iceibank.modelo.relogio.Carimbo;
 import br.pucminas.iceibank.modelo.relogio.CarimboLamport;
 import br.pucminas.iceibank.modelo.relogio.RelogioLamport;
-import br.pucminas.iceibank.repositorio.ContaRepositorioEmMemoria;
+import br.pucminas.iceibank.repositorio.ContaRepositorio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,16 +31,21 @@ class ContaServiceTest {
 
     private static final int ID_AGENCIA = 0;
 
-    private ContaRepositorioEmMemoria repositorio;
+    private static final AgenciaProperties PROPRIEDADES = new AgenciaProperties(
+            ID_AGENCIA, 3,
+            List.of("http://localhost:4016", "http://localhost:4017", "http://localhost:4018"),
+            "target/dados-de-teste");
+
+    private ContaRepositorio repositorio;
     private RegistroEmLista registro;
     private ContaService servico;
 
     @BeforeEach
     void montarServicoDaAgenciaZero() {
-        repositorio = new ContaRepositorioEmMemoria();
+        repositorio = new ContaRepositorio();
         registro = new RegistroEmLista();
         servico = new ContaService(
-                ID_AGENCIA, new Particionador(3), repositorio, new RelogioLamport(), registro, registro);
+                PROPRIEDADES, new Particionador(3), repositorio, new RelogioLamport(), registro);
     }
 
     // ---------- abertura ----------
@@ -204,9 +209,13 @@ class ContaServiceTest {
         assertThrows(ContaNaoEncontradaException.class, () -> servico.historico(0, 10));
     }
 
-    /** Fake que implementa as duas portas: guarda os eventos numa lista. */
-    private static class RegistroEmLista implements RegistroEventos, ConsultaEventos {
+    /** Registro de eventos que fica na memoria, para o teste nao tocar disco. */
+    private static class RegistroEmLista extends RegistroDeEventos {
         final List<Evento> eventos = new ArrayList<>();
+
+        RegistroEmLista() {
+            super(PROPRIEDADES);
+        }
 
         @Override
         public Evento registrar(String tipo, Carimbo carimbo, Map<String, Object> detalhes) {

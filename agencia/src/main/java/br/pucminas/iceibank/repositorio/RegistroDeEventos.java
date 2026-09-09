@@ -1,12 +1,12 @@
 package br.pucminas.iceibank.repositorio;
 
-import br.pucminas.iceibank.servico.ConsultaEventos;
-import br.pucminas.iceibank.servico.RegistroEventos;
+import br.pucminas.iceibank.config.AgenciaProperties;
 import br.pucminas.iceibank.modelo.evento.Evento;
 import br.pucminas.iceibank.modelo.relogio.Carimbo;
 import br.pucminas.iceibank.modelo.relogio.CarimboLamport;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.stereotype.Repository;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -22,13 +22,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Adapter de saida: grava cada evento como UMA linha JSON (formato .jsonl)
- * e sabe reler o arquivo para montar o historico de uma conta.
+ * Grava cada evento como UMA linha JSON (formato .jsonl) e sabe reler o arquivo
+ * para montar o historico de uma conta.
  *
- * Implementa DUAS portas (escrita e leitura). Uma classe pode implementar
- * varias interfaces pequenas — quem consome enxerga so a que precisa.
+ * synchronized porque o Tomcat atende cada requisicao numa thread do pool: duas
+ * escritas simultaneas no mesmo arquivo embaralhariam as linhas.
  */
-public class RegistroEventosJsonl implements RegistroEventos, ConsultaEventos {
+@Repository
+public class RegistroDeEventos {
 
     /** Campos de "detalhes" que referenciam uma conta, usados para filtrar o historico. */
     private static final List<String> CAMPOS_DE_CONTA = List.of("id", "idConta", "idOrigem", "idDestino");
@@ -37,8 +38,9 @@ public class RegistroEventosJsonl implements RegistroEventos, ConsultaEventos {
     private final Path caminhoArquivo;
     private final ObjectMapper json = new ObjectMapper();
 
-    public RegistroEventosJsonl(String nomeAgencia, Path pastaDados) {
-        this.nomeAgencia = nomeAgencia;
+    public RegistroDeEventos(AgenciaProperties propriedades) {
+        this.nomeAgencia = propriedades.nome();
+        Path pastaDados = Path.of(propriedades.pastaDados());
         try {
             Files.createDirectories(pastaDados);
         } catch (IOException e) {
@@ -47,7 +49,6 @@ public class RegistroEventosJsonl implements RegistroEventos, ConsultaEventos {
         this.caminhoArquivo = pastaDados.resolve("eventos-" + nomeAgencia + ".jsonl");
     }
 
-    @Override
     public synchronized Evento registrar(String tipo, Carimbo carimbo, Map<String, Object> detalhes) {
         Evento evento = new Evento(nomeAgencia, tipo, carimbo, Instant.now(), detalhes);
         escrever(evento);
@@ -55,7 +56,6 @@ public class RegistroEventosJsonl implements RegistroEventos, ConsultaEventos {
         return evento;
     }
 
-    @Override
     public synchronized List<Evento> ultimosDaConta(int idConta, int limite) {
         List<Evento> daConta = new ArrayList<>();
         for (Map<String, Object> linha : lerTodasAsLinhas()) {
@@ -68,7 +68,6 @@ public class RegistroEventosJsonl implements RegistroEventos, ConsultaEventos {
         return daConta.size() > limite ? List.copyOf(daConta.subList(0, limite)) : List.copyOf(daConta);
     }
 
-    @Override
     public synchronized List<Evento> ultimos(int limite) {
         List<Evento> todos = new ArrayList<>();
         for (Map<String, Object> linha : lerTodasAsLinhas()) {
@@ -78,7 +77,6 @@ public class RegistroEventosJsonl implements RegistroEventos, ConsultaEventos {
         return todos.size() > limite ? List.copyOf(todos.subList(0, limite)) : List.copyOf(todos);
     }
 
-    @Override
     public synchronized int quantidade() {
         return lerTodasAsLinhas().size();
     }

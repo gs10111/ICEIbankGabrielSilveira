@@ -1,16 +1,17 @@
 package br.pucminas.iceibank.servico;
 
-import br.pucminas.iceibank.servico.AgenciaRemota;
-import br.pucminas.iceibank.servico.AgenciaRemotaIndisponivelException;
-import br.pucminas.iceibank.servico.ContaRepositorio;
-import br.pucminas.iceibank.servico.RegistroEventos;
+import br.pucminas.iceibank.config.AgenciaProperties;
 import br.pucminas.iceibank.modelo.conta.Conta;
 import br.pucminas.iceibank.modelo.conta.ContaNaoEncontradaException;
 import br.pucminas.iceibank.modelo.conta.ContaNaoPertenceAgenciaException;
 import br.pucminas.iceibank.modelo.conta.ValorInvalidoException;
 import br.pucminas.iceibank.modelo.particao.Particionador;
 import br.pucminas.iceibank.modelo.relogio.Carimbo;
-import br.pucminas.iceibank.modelo.relogio.RelogioLogico;
+import br.pucminas.iceibank.modelo.relogio.RelogioLamport;
+import br.pucminas.iceibank.repositorio.ContaRepositorio;
+import br.pucminas.iceibank.repositorio.RegistroDeEventos;
+import br.pucminas.iceibank.repositorio.RegistroDeIdempotencia;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -19,39 +20,57 @@ import java.util.Map;
  * Transferencia local (mesma agencia) e entre agencias.
  *
  * Onde cada regra de Lamport entra:
- *  - debito       -> eventoLocal()   (regra 1) — acontece sempre, a origem e sempre local
- *  - credito local-> eventoLocal()   (regra 1) — nao ha mensagem, nao ha o que sincronizar
- *  - credito remoto-> aoEnviar()     (regra 2) na origem, e aoReceber() (regra 3) no destino
+ *  - debito         -> eventoLocal()  (regra 1) — a origem e sempre local
+ *  - credito local  -> eventoLocal()  (regra 1) — nao ha mensagem, nao ha o que sincronizar
+ *  - credito remoto -> aoEnviar()     (regra 2) na origem, e aoReceber() (regra 3) no destino
  *
  * LIMITACAO CONHECIDA (Parte D do roteiro): se a agencia de destino cair depois do
  * debito, o dinheiro "some". Nao revertemos de proposito — e o problema que o
  * Sprint 4 resolve com 2PC ou Saga. Aqui so registramos TRANSFERENCIA_FALHOU.
  */
-public class TransferenciaService implements Transferir {
+@Service
+public class TransferenciaService {
 
     private final int idAgencia;
     private final Particionador particionador;
     private final ContaRepositorio repositorio;
-    private final RelogioLogico relogio;
-    private final RegistroEventos registro;
+    private final RelogioLamport relogio;
+    private final RegistroDeEventos eventos;
     private final AgenciaRemota agenciaRemota;
+    private final RegistroDeIdempotencia idempotencia;
 
-    public TransferenciaService(int idAgencia,
+    public TransferenciaService(AgenciaProperties propriedades,
                                 Particionador particionador,
                                 ContaRepositorio repositorio,
-                                RelogioLogico relogio,
-                                RegistroEventos registro,
-                                AgenciaRemota agenciaRemota) {
-        this.idAgencia = idAgencia;
+                                RelogioLamport relogio,
+                                RegistroDeEventos eventos,
+                                AgenciaRemota agenciaRemota,
+                                RegistroDeIdempotencia idempotencia) {
+        this.idAgencia = propriedades.id();
         this.particionador = particionador;
         this.repositorio = repositorio;
         this.relogio = relogio;
-        this.registro = registro;
+        this.eventos = eventos;
         this.agenciaRemota = agenciaRemota;
+        this.idempotencia = idempotencia;
     }
 
-    @Override
+    /**
+     * FUNCIONALIDADE ADICIONAL 2 — idempotencia.
+     *
+     * Chave ausente = o cliente abriu mao da garantia e a transferencia segue direto.
+     * Com chave, o registro executa no maximo uma vez e devolve o MESMO recibo no
+     * reenvio. Falha nao e memorizada: o cliente pode tentar de novo.
+     */
     public Recibo executar(OrdemDeTransferencia ordem) {
+        String chave = ordem.chaveIdempotencia();
+        if (chave == null || chave.isBlank()) {
+            return transferir(ordem);
+        }
+        return idempotencia.executarUmaVez(chave, ordem, () -> transferir(ordem));
+    }
+
+    private Recibo transferir(OrdemDeTransferencia ordem) {
         validar(ordem);
 
         Conta origem = repositorio.buscar(ordem.idOrigem())
@@ -76,12 +95,12 @@ public class TransferenciaService implements Transferir {
         Carimbo carimboDebito = relogio.eventoLocal();
         origem.sacar(ordem.valor());
         repositorio.salvar(origem);
-        registro.registrar("TRANSFERENCIA_DEBITO", carimboDebito, detalhes(ordem));
+        eventos.registrar("TRANSFERENCIA_DEBITO", carimboDebito, detalhes(ordem));
 
         Carimbo carimboCredito = relogio.eventoLocal();
         destino.depositar(ordem.valor());
         repositorio.salvar(destino);
-        registro.registrar("TRANSFERENCIA_CREDITO", carimboCredito, detalhes(ordem));
+        eventos.registrar("TRANSFERENCIA_CREDITO", carimboCredito, detalhes(ordem));
 
         return new Recibo("Transferencia concluida (mesma agencia).", true,
                 ordem.idOrigem(), ordem.idDestino(), ordem.valor(), origem.saldo(), false);
@@ -93,7 +112,7 @@ public class TransferenciaService implements Transferir {
         Carimbo carimboDebito = relogio.eventoLocal();
         origem.sacar(ordem.valor());                  // Conta valida saldo e valor
         repositorio.salvar(origem);
-        registro.registrar("TRANSFERENCIA_DEBITO", carimboDebito, detalhes(ordem));
+        eventos.registrar("TRANSFERENCIA_DEBITO", carimboDebito, detalhes(ordem));
 
         // Regra 2 de Lamport: ao ENVIAR mensagem, incrementa e anexa o carimbo.
         Carimbo carimboEnvio = relogio.aoEnviar();
@@ -102,7 +121,7 @@ public class TransferenciaService implements Transferir {
             agenciaRemota.creditar(agenciaDestino, ordem.idDestino(), ordem.valor(), carimboEnvio, idAgencia);
         } catch (AgenciaRemotaIndisponivelException e) {
             // LIMITACAO CONHECIDA: o debito acima NAO e revertido. Sprint 4 (2PC/Saga).
-            registro.registrar("TRANSFERENCIA_FALHOU", relogio.eventoLocal(),
+            eventos.registrar("TRANSFERENCIA_FALHOU", relogio.eventoLocal(),
                     Map.of("idOrigem", ordem.idOrigem(), "idDestino", ordem.idDestino(),
                             "valor", ordem.valor(), "erro", String.valueOf(e.getMessage()),
                             "saldoOrigemAposDebito", origem.saldo()));
@@ -130,7 +149,7 @@ public class TransferenciaService implements Transferir {
 
         conta.depositar(valor);
         repositorio.salvar(conta);
-        registro.registrar("TRANSFERENCIA_CREDITO_REMOTO", carimbo,
+        eventos.registrar("TRANSFERENCIA_CREDITO_REMOTO", carimbo,
                 Map.of("idConta", idConta, "valor", valor,
                         "agenciaOrigem", agenciaOrigem, "novoSaldo", conta.saldo()));
         return conta;

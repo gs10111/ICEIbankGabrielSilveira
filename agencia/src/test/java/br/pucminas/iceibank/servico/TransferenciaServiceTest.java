@@ -1,9 +1,8 @@
 package br.pucminas.iceibank.servico;
 
-import br.pucminas.iceibank.servico.AgenciaRemota;
-import br.pucminas.iceibank.servico.AgenciaRemotaIndisponivelException;
-import br.pucminas.iceibank.servico.ChaveIdempotenciaConflitanteException;
-import br.pucminas.iceibank.servico.RegistroEventos;
+import br.pucminas.iceibank.config.AgenciaProperties;
+import br.pucminas.iceibank.seguranca.SegurancaProperties;
+import br.pucminas.iceibank.repositorio.RegistroDeEventos;
 import br.pucminas.iceibank.modelo.conta.Conta;
 import br.pucminas.iceibank.modelo.conta.ContaNaoEncontradaException;
 import br.pucminas.iceibank.modelo.conta.ContaNaoPertenceAgenciaException;
@@ -14,8 +13,8 @@ import br.pucminas.iceibank.modelo.particao.Particionador;
 import br.pucminas.iceibank.modelo.relogio.Carimbo;
 import br.pucminas.iceibank.modelo.relogio.CarimboLamport;
 import br.pucminas.iceibank.modelo.relogio.RelogioLamport;
-import br.pucminas.iceibank.repositorio.ContaRepositorioEmMemoria;
-import br.pucminas.iceibank.repositorio.RegistroIdempotenciaEmMemoria;
+import br.pucminas.iceibank.repositorio.ContaRepositorio;
+import br.pucminas.iceibank.repositorio.RegistroDeIdempotencia;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -34,18 +33,26 @@ class TransferenciaServiceTest {
 
     private static final int ID_AGENCIA = 0;
 
-    private ContaRepositorioEmMemoria repositorio;
+    private static final AgenciaProperties PROPRIEDADES = new AgenciaProperties(
+            ID_AGENCIA, 3,
+            List.of("http://localhost:4016", "http://localhost:4017", "http://localhost:4018"),
+            "target/dados-de-teste");
+
+    private static final SegurancaProperties SEGURANCA = new SegurancaProperties(
+            "segredo-de-teste-com-mais-de-32-caracteres", 900, "token-entre-agencias-de-teste");
+
+    private ContaRepositorio repositorio;
     private RegistroEmLista registro;
     private AgenciaRemotaFalsa agenciaRemota;
     private TransferenciaService servico;
 
     @BeforeEach
     void montar() {
-        repositorio = new ContaRepositorioEmMemoria();
+        repositorio = new ContaRepositorio();
         registro = new RegistroEmLista();
         agenciaRemota = new AgenciaRemotaFalsa();
-        servico = new TransferenciaService(ID_AGENCIA, new Particionador(3), repositorio,
-                new RelogioLamport(), registro, agenciaRemota);
+        servico = new TransferenciaService(PROPRIEDADES, new Particionador(3), repositorio,
+                new RelogioLamport(), registro, agenciaRemota, new RegistroDeIdempotencia());
 
         repositorio.salvar(new Conta(0, "Ana", new BigDecimal("100.00")));   // 0 % 3 == 0
         repositorio.salvar(new Conta(3, "Caio", new BigDecimal("20.00")));   // 3 % 3 == 0
@@ -168,20 +175,13 @@ class TransferenciaServiceTest {
     @DisplayName("idempotencia (funcionalidade adicional 2)")
     class Idempotencia {
 
-        private Transferir transferir;
-
-        @BeforeEach
-        void decorar() {
-            transferir = new TransferenciaIdempotente(servico, new RegistroIdempotenciaEmMemoria());
-        }
-
         @Test
         @DisplayName("reenvio com a mesma chave NAO debita duas vezes")
         void reenvioNaoDebitaDuasVezes() {
             OrdemDeTransferencia mesma = new OrdemDeTransferencia("chave-1", 0, 3, new BigDecimal("30.00"));
 
-            transferir.executar(mesma);
-            Recibo segunda = transferir.executar(mesma);
+            servico.executar(mesma);
+            Recibo segunda = servico.executar(mesma);
 
             assertThat(repositorio.buscar(0).orElseThrow().saldo()).isEqualByComparingTo("70.00");
             assertThat(segunda.reenvio()).isTrue();
@@ -191,8 +191,8 @@ class TransferenciaServiceTest {
         @Test
         @DisplayName("chaves diferentes sao operacoes diferentes e ambas sao aplicadas")
         void chavesDiferentesAplicamDuasVezes() {
-            transferir.executar(new OrdemDeTransferencia("chave-1", 0, 3, new BigDecimal("30.00")));
-            transferir.executar(new OrdemDeTransferencia("chave-2", 0, 3, new BigDecimal("30.00")));
+            servico.executar(new OrdemDeTransferencia("chave-1", 0, 3, new BigDecimal("30.00")));
+            servico.executar(new OrdemDeTransferencia("chave-2", 0, 3, new BigDecimal("30.00")));
 
             assertThat(repositorio.buscar(0).orElseThrow().saldo()).isEqualByComparingTo("40.00");
         }
@@ -200,8 +200,8 @@ class TransferenciaServiceTest {
         @Test
         @DisplayName("sem chave, cada requisicao e aplicada: o cliente abriu mao da garantia")
         void semChaveAplicaSempre() {
-            transferir.executar(ordem(0, 3, "30.00"));
-            transferir.executar(ordem(0, 3, "30.00"));
+            servico.executar(ordem(0, 3, "30.00"));
+            servico.executar(ordem(0, 3, "30.00"));
 
             assertThat(repositorio.buscar(0).orElseThrow().saldo()).isEqualByComparingTo("40.00");
         }
@@ -209,10 +209,10 @@ class TransferenciaServiceTest {
         @Test
         @DisplayName("mesma chave com dados diferentes e conflito, nao reenvio")
         void mesmaChaveComDadosDiferentesEhConflito() {
-            transferir.executar(new OrdemDeTransferencia("chave-1", 0, 3, new BigDecimal("10.00")));
+            servico.executar(new OrdemDeTransferencia("chave-1", 0, 3, new BigDecimal("10.00")));
 
             assertThrows(ChaveIdempotenciaConflitanteException.class,
-                    () -> transferir.executar(new OrdemDeTransferencia("chave-1", 0, 3, new BigDecimal("999.00"))));
+                    () -> servico.executar(new OrdemDeTransferencia("chave-1", 0, 3, new BigDecimal("999.00"))));
         }
 
         @Test
@@ -221,20 +221,24 @@ class TransferenciaServiceTest {
             OrdemDeTransferencia paraOutraAgencia =
                     new OrdemDeTransferencia("chave-9", 0, 1, new BigDecimal("30.00"));
             agenciaRemota.forcarIndisponibilidade();
-            assertThrows(AgenciaRemotaIndisponivelException.class, () -> transferir.executar(paraOutraAgencia));
+            assertThrows(AgenciaRemotaIndisponivelException.class, () -> servico.executar(paraOutraAgencia));
 
             agenciaRemota.voltarAoAr();
-            assertThat(transferir.executar(paraOutraAgencia).reenvio()).isFalse();
+            assertThat(servico.executar(paraOutraAgencia).reenvio()).isFalse();
         }
     }
 
     // ------------------------------------------------------------------ fakes
 
-    private static class AgenciaRemotaFalsa implements AgenciaRemota {
+    private static class AgenciaRemotaFalsa extends AgenciaRemota {
         int chamadas;
         int ultimaAgenciaDestino;
         Carimbo ultimoCarimbo;
         private boolean noAr = true;
+
+        AgenciaRemotaFalsa() {
+            super(PROPRIEDADES, null, SEGURANCA);
+        }
 
         void forcarIndisponibilidade() {
             noAr = false;
@@ -256,8 +260,12 @@ class TransferenciaServiceTest {
         }
     }
 
-    private static class RegistroEmLista implements RegistroEventos {
+    private static class RegistroEmLista extends RegistroDeEventos {
         final List<Evento> eventos = new ArrayList<>();
+
+        RegistroEmLista() {
+            super(PROPRIEDADES);
+        }
 
         @Override
         public Evento registrar(String tipo, Carimbo carimbo, Map<String, Object> detalhes) {

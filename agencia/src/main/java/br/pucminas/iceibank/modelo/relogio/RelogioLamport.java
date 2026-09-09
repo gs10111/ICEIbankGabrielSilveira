@@ -1,14 +1,12 @@
 package br.pucminas.iceibank.modelo.relogio;
 
-public class RelogioLamport implements RelogioLogico {
+public class RelogioLamport {
     private int contador = 0;
 
-    @Override
     public Carimbo eventoLocal() {
         return incrementar();
     }
 
-    @Override
     public Carimbo aoEnviar() {
         return incrementar();
     }
@@ -18,7 +16,6 @@ public class RelogioLamport implements RelogioLogico {
         return new CarimboLamport(contador);
     }
 
-    @Override
     public synchronized Carimbo aoReceber(Carimbo recebido) {
         int valorRecebido = switch (recebido) {
             case CarimboLamport(int valor) -> valor;
