@@ -1,10 +1,12 @@
 package br.pucminas.iceibank.aplicacao.conta;
 
+import br.pucminas.iceibank.aplicacao.porta.ConsultaEventos;
 import br.pucminas.iceibank.aplicacao.porta.RegistroEventos;
+import br.pucminas.iceibank.dominio.conta.Conta;
 import br.pucminas.iceibank.dominio.conta.ContaJaExisteException;
 import br.pucminas.iceibank.dominio.conta.ContaNaoEncontradaException;
 import br.pucminas.iceibank.dominio.conta.ContaNaoPertenceAgenciaException;
-import br.pucminas.iceibank.dominio.conta.Conta;
+import br.pucminas.iceibank.dominio.conta.SaldoInsuficienteException;
 import br.pucminas.iceibank.dominio.evento.Evento;
 import br.pucminas.iceibank.dominio.particao.Particionador;
 import br.pucminas.iceibank.dominio.relogio.Carimbo;
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -37,12 +40,10 @@ class ContaServiceTest {
         repositorio = new ContaRepositorioEmMemoria();
         registro = new RegistroEmLista();
         servico = new ContaService(
-                ID_AGENCIA,
-                new Particionador(3),
-                repositorio,
-                new RelogioLamport(),
-                registro);
+                ID_AGENCIA, new Particionador(3), repositorio, new RelogioLamport(), registro, registro);
     }
+
+    // ---------- abertura ----------
 
     @Test
     @DisplayName("abrir cria a conta e ela pode ser consultada depois")
@@ -54,8 +55,6 @@ class ContaServiceTest {
         assertThat(criada.saldo()).isEqualByComparingTo("100.00");
         assertThat(repositorio.buscar(0)).isPresent();
     }
-
-    // ---------- particao ----------
 
     @Test
     @DisplayName("agencia recusa abrir conta que nao e sua (1 % 3 == 1, nao 0)")
@@ -73,6 +72,18 @@ class ContaServiceTest {
 
         assertThrows(ContaJaExisteException.class,
                 () -> servico.abrir(0, "Outra", new BigDecimal("999.00")));
+    }
+
+    @Test
+    @DisplayName("validacao que falha nao consome carimbo nem gera evento")
+    void validacaoQueFalhaNaoCarimba() {
+        assertThrows(ContaNaoPertenceAgenciaException.class,
+                () -> servico.abrir(1, "Bia", new BigDecimal("50.00")));
+
+        servico.abrir(0, "Ana", new BigDecimal("100.00"));
+
+        assertThat(registro.eventos).hasSize(1);
+        assertThat(registro.eventos.get(0).carimbo()).isEqualTo(new CarimboLamport(1));
     }
 
     // ---------- consulta ----------
@@ -98,9 +109,7 @@ class ContaServiceTest {
     void depositoAumentaSaldo() {
         servico.abrir(0, "Ana", new BigDecimal("100.00"));
 
-        Conta depois = servico.depositar(0, new BigDecimal("25.00"));
-
-        assertThat(depois.saldo()).isEqualByComparingTo("125.00");
+        assertThat(servico.depositar(0, new BigDecimal("25.00")).saldo()).isEqualByComparingTo("125.00");
     }
 
     @Test
@@ -108,9 +117,7 @@ class ContaServiceTest {
     void saqueDiminuiSaldo() {
         servico.abrir(0, "Ana", new BigDecimal("100.00"));
 
-        Conta depois = servico.sacar(0, new BigDecimal("30.00"));
-
-        assertThat(depois.saldo()).isEqualByComparingTo("70.00");
+        assertThat(servico.sacar(0, new BigDecimal("30.00")).saldo()).isEqualByComparingTo("70.00");
     }
 
     @Test
@@ -120,7 +127,16 @@ class ContaServiceTest {
                 () -> servico.depositar(0, new BigDecimal("10.00")));
     }
 
-    // ---------- relogio de Lamport aplicado (o que vale os 3 pontos) ----------
+    @Test
+    @DisplayName("saque acima do saldo e rejeitado pela propria Conta")
+    void saqueAcimaDoSaldoEhRejeitado() {
+        servico.abrir(0, "Ana", new BigDecimal("100.00"));
+
+        assertThrows(SaldoInsuficienteException.class,
+                () -> servico.sacar(0, new BigDecimal("150.00")));
+    }
+
+    // ---------- relogio de Lamport aplicado ----------
 
     @Test
     @DisplayName("abrir conta registra evento CRIAR_CONTA carimbado com 1")
@@ -142,7 +158,6 @@ class ContaServiceTest {
 
         assertThat(registro.eventos).extracting(Evento::carimbo)
                 .containsExactly(new CarimboLamport(1), new CarimboLamport(2), new CarimboLamport(3));
-
         assertThat(registro.eventos).extracting(Evento::tipo)
                 .containsExactly("CRIAR_CONTA", "DEPOSITO", "SAQUE");
     }
@@ -158,8 +173,39 @@ class ContaServiceTest {
         assertThat(registro.eventos).hasSize(1);
     }
 
-    /** Fake: guarda os eventos numa lista para o teste poder afirmar sobre eles. */
-    private static class RegistroEmLista implements RegistroEventos {
+    // ---------- funcionalidade adicional 1: historico ----------
+
+    @Test
+    @DisplayName("historico devolve os eventos da conta, do mais recente para o mais antigo")
+    void historicoDevolveEventosDaConta() {
+        servico.abrir(0, "Ana", new BigDecimal("100.00"));
+        servico.depositar(0, new BigDecimal("10.00"));
+        servico.sacar(0, new BigDecimal("5.00"));
+
+        List<Evento> historico = servico.historico(0, 10);
+
+        assertThat(historico).extracting(Evento::tipo)
+                .containsExactly("SAQUE", "DEPOSITO", "CRIAR_CONTA");
+    }
+
+    @Test
+    @DisplayName("historico respeita o limite pedido")
+    void historicoRespeitaOLimite() {
+        servico.abrir(0, "Ana", new BigDecimal("100.00"));
+        servico.depositar(0, new BigDecimal("10.00"));
+        servico.sacar(0, new BigDecimal("5.00"));
+
+        assertThat(servico.historico(0, 2)).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("historico de conta inexistente e rejeitado")
+    void historicoDeContaInexistenteEhRejeitado() {
+        assertThrows(ContaNaoEncontradaException.class, () -> servico.historico(0, 10));
+    }
+
+    /** Fake que implementa as duas portas: guarda os eventos numa lista. */
+    private static class RegistroEmLista implements RegistroEventos, ConsultaEventos {
         final List<Evento> eventos = new ArrayList<>();
 
         @Override
@@ -167,6 +213,27 @@ class ContaServiceTest {
             Evento evento = new Evento("teste", tipo, carimbo, Instant.now(), detalhes);
             eventos.add(evento);
             return evento;
+        }
+
+        @Override
+        public List<Evento> ultimosDaConta(int idConta, int limite) {
+            List<Evento> daConta = new ArrayList<>(eventos.stream()
+                    .filter(e -> e.detalhes().get("id") instanceof Number n && n.intValue() == idConta)
+                    .toList());
+            Collections.reverse(daConta);
+            return daConta.size() > limite ? daConta.subList(0, limite) : daConta;
+        }
+
+        @Override
+        public List<Evento> ultimos(int limite) {
+            List<Evento> todos = new ArrayList<>(eventos);
+            Collections.reverse(todos);
+            return todos.size() > limite ? todos.subList(0, limite) : todos;
+        }
+
+        @Override
+        public int quantidade() {
+            return eventos.size();
         }
     }
 }
