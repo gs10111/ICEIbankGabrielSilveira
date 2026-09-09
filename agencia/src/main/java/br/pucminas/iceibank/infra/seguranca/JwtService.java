@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.MacAlgorithm;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -25,6 +26,14 @@ import java.util.Optional;
 @Component
 public class JwtService {
 
+    /**
+     * Algoritmo EXPLICITO. Sem este parametro a jjwt escolhe sozinha pelo tamanho da
+     * chave (com o segredo de 62 bytes do application.yml ela sobe para HS384), e
+     * trocar JWT_SEGREDO passaria a mudar a criptografia do sistema sem ninguem
+     * perceber. Fixar aqui e uma decisao, nao um efeito colateral de configuracao.
+     */
+    private static final MacAlgorithm ALGORITMO = Jwts.SIG.HS256;
+
     private final SecretKey chave;
     private final Duration validade;
 
@@ -42,7 +51,7 @@ public class JwtService {
                 .claim("agencia", agencia)
                 .issuedAt(Date.from(agora))
                 .expiration(Date.from(agora.plus(validade)))
-                .signWith(chave)
+                .signWith(chave, ALGORITMO)
                 .compact();
     }
 
