@@ -1,9 +1,10 @@
 package br.pucminas.iceibank.repositorio;
 
 import br.pucminas.iceibank.servico.ChaveIdempotenciaConflitanteException;
-import br.pucminas.iceibank.servico.RegistroIdempotencia;
 import br.pucminas.iceibank.servico.OrdemDeTransferencia;
 import br.pucminas.iceibank.servico.Recibo;
+
+import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,13 +20,13 @@ import java.util.function.Supplier;
  * simultaneas com a mesma chave, que um `if (contains) ... else put(...)` deixaria passar.
  * Se a operacao lancar, nada e gravado: falha nao deve ser memorizada como sucesso.
  */
-public class RegistroIdempotenciaEmMemoria implements RegistroIdempotencia {
+@Component
+public class RegistroDeIdempotencia {
 
     private record Registrado(OrdemDeTransferencia ordem, Recibo recibo) { }
 
     private final Map<String, Registrado> porChave = new ConcurrentHashMap<>();
 
-    @Override
     public Recibo executarUmaVez(String chave, OrdemDeTransferencia ordem, Supplier<Recibo> operacao) {
         boolean[] executouAgora = {false};
 

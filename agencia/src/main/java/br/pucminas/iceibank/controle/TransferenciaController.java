@@ -3,7 +3,6 @@ package br.pucminas.iceibank.controle;
 import br.pucminas.iceibank.servico.OrdemDeTransferencia;
 import br.pucminas.iceibank.servico.Recibo;
 import br.pucminas.iceibank.servico.TransferenciaService;
-import br.pucminas.iceibank.servico.Transferir;
 import br.pucminas.iceibank.modelo.relogio.CarimboLamport;
 import br.pucminas.iceibank.config.AgenciaProperties;
 import br.pucminas.iceibank.controle.dto.ContaResposta;
@@ -19,11 +18,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class TransferenciaController {
 
-    private final Transferir transferir;
+    private final TransferenciaService transferir;
     private final TransferenciaService servico;
     private final int idAgencia;
 
-    public TransferenciaController(Transferir transferir,
+    public TransferenciaController(TransferenciaService transferir,
                                    TransferenciaService servico,
                                    AgenciaProperties propriedades) {
         this.transferir = transferir;       // ja vem DECORADO com idempotencia

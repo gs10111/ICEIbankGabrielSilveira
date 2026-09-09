@@ -1,10 +1,11 @@
 package br.pucminas.iceibank.servico;
 
-import br.pucminas.iceibank.servico.AgenciaRemotaIndisponivelException;
-import br.pucminas.iceibank.servico.ConsultaContaRemota;
-import br.pucminas.iceibank.servico.ContaRepositorio;
+import br.pucminas.iceibank.repositorio.ContaRepositorio;
+import br.pucminas.iceibank.config.AgenciaProperties;
 import br.pucminas.iceibank.modelo.conta.Conta;
 import br.pucminas.iceibank.modelo.particao.Particionador;
+
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import java.util.Optional;
  * O resultado carrega `consistente` dizendo se alguma agencia falhou — melhor
  * devolver um numero rotulado como parcial do que um numero errado calado.
  */
+@Service
 public class ExtratoConsolidadoService {
 
     public record ItemDoExtrato(int id, String nomeAluno, BigDecimal saldo, int agencia, boolean disponivel) { }
@@ -33,13 +35,13 @@ public class ExtratoConsolidadoService {
     private final int idAgencia;
     private final Particionador particionador;
     private final ContaRepositorio repositorio;
-    private final ConsultaContaRemota consultaRemota;
+    private final AgenciaRemota consultaRemota;
 
-    public ExtratoConsolidadoService(int idAgencia,
+    public ExtratoConsolidadoService(AgenciaProperties propriedades,
                                      Particionador particionador,
                                      ContaRepositorio repositorio,
-                                     ConsultaContaRemota consultaRemota) {
-        this.idAgencia = idAgencia;
+                                     AgenciaRemota consultaRemota) {
+        this.idAgencia = propriedades.id();
         this.particionador = particionador;
         this.repositorio = repositorio;
         this.consultaRemota = consultaRemota;

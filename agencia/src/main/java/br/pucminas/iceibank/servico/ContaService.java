@@ -1,8 +1,6 @@
 package br.pucminas.iceibank.servico;
 
-import br.pucminas.iceibank.servico.ConsultaEventos;
-import br.pucminas.iceibank.servico.ContaRepositorio;
-import br.pucminas.iceibank.servico.RegistroEventos;
+import br.pucminas.iceibank.config.AgenciaProperties;
 import br.pucminas.iceibank.modelo.conta.Conta;
 import br.pucminas.iceibank.modelo.conta.ContaJaExisteException;
 import br.pucminas.iceibank.modelo.conta.ContaNaoEncontradaException;
@@ -10,39 +8,45 @@ import br.pucminas.iceibank.modelo.conta.ContaNaoPertenceAgenciaException;
 import br.pucminas.iceibank.modelo.evento.Evento;
 import br.pucminas.iceibank.modelo.particao.Particionador;
 import br.pucminas.iceibank.modelo.relogio.Carimbo;
-import br.pucminas.iceibank.modelo.relogio.RelogioLogico;
+import br.pucminas.iceibank.modelo.relogio.RelogioLamport;
+import br.pucminas.iceibank.repositorio.ContaRepositorio;
+import br.pucminas.iceibank.repositorio.RegistroDeEventos;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Casos de uso de conta desta agencia.
+ * Regras de aplicacao das contas desta agencia.
  *
- * Depende SO de abstracoes (as portas) — por isso e testavel sem Spring,
- * sem HTTP e sem disco. E o D do SOLID (Dependency Inversion) na pratica.
+ * No MVC, o Controller so traduz HTTP; o Modelo (Conta) guarda a regra de negocio;
+ * este Service e a cola: valida a particao, carimba o relogio e registra o evento.
+ *
+ * Toda operacao que ESCREVE segue a mesma sequencia:
+ *   1. a conta e desta agencia?   2. a conta existe?
+ *   3. carimba o relogio          4. o MODELO aplica a regra (Conta.depositar/sacar)
+ *   5. salva                      6. registra o evento
  */
+@Service
 public class ContaService {
 
     private final int idAgencia;
     private final Particionador particionador;
     private final ContaRepositorio repositorio;
-    private final RelogioLogico relogio;
-    private final RegistroEventos registro;
-    private final ConsultaEventos consultaEventos;
+    private final RelogioLamport relogio;
+    private final RegistroDeEventos eventos;
 
-    public ContaService(int idAgencia,
+    public ContaService(AgenciaProperties propriedades,
                         Particionador particionador,
                         ContaRepositorio repositorio,
-                        RelogioLogico relogio,
-                        RegistroEventos registro,
-                        ConsultaEventos consultaEventos) {
-        this.idAgencia = idAgencia;
+                        RelogioLamport relogio,
+                        RegistroDeEventos eventos) {
+        this.idAgencia = propriedades.id();
         this.particionador = particionador;
         this.repositorio = repositorio;
         this.relogio = relogio;
-        this.registro = registro;
-        this.consultaEventos = consultaEventos;
+        this.eventos = eventos;
     }
 
     public Conta abrir(int id, String nome, BigDecimal saldoInicial) {
@@ -56,7 +60,7 @@ public class ContaService {
 
         Conta conta = new Conta(id, nome, saldoInicial);
         repositorio.salvar(conta);
-        registro.registrar("CRIAR_CONTA", carimbo,
+        eventos.registrar("CRIAR_CONTA", carimbo,
                 Map.of("id", id, "nomeAluno", nome, "saldoInicial", saldoInicial));
         return conta;
     }
@@ -74,7 +78,7 @@ public class ContaService {
         Carimbo carimbo = relogio.eventoLocal();
         conta.depositar(valor);                  // a REGRA mora na Conta, nao aqui
         repositorio.salvar(conta);
-        registro.registrar("DEPOSITO", carimbo,
+        eventos.registrar("DEPOSITO", carimbo,
                 Map.of("id", id, "valor", valor, "novoSaldo", conta.saldo()));
         return conta;
     }
@@ -86,7 +90,7 @@ public class ContaService {
         Carimbo carimbo = relogio.eventoLocal();
         conta.sacar(valor);
         repositorio.salvar(conta);
-        registro.registrar("SAQUE", carimbo,
+        eventos.registrar("SAQUE", carimbo,
                 Map.of("id", id, "valor", valor, "novoSaldo", conta.saldo()));
         return conta;
     }
@@ -95,7 +99,7 @@ public class ContaService {
     public List<Evento> historico(int id, int limite) {
         exigirQueSejaDestaAgencia(id);
         buscarOuFalhar(id);                      // 404 se a conta nao existe
-        return consultaEventos.ultimosDaConta(id, limite);
+        return eventos.ultimosDaConta(id, limite);
     }
 
     public int idAgencia() {

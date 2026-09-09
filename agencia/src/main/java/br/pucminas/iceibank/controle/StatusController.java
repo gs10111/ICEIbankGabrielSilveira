@@ -1,7 +1,7 @@
 package br.pucminas.iceibank.controle;
 
 import br.pucminas.iceibank.servico.ContaService;
-import br.pucminas.iceibank.servico.ConsultaEventos;
+import br.pucminas.iceibank.repositorio.RegistroDeEventos;
 import br.pucminas.iceibank.config.AgenciaProperties;
 import br.pucminas.iceibank.controle.dto.EventoResposta;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,11 +21,11 @@ import java.util.List;
 public class StatusController {
 
     private final ContaService contaService;
-    private final ConsultaEventos consultaEventos;
+    private final RegistroDeEventos consultaEventos;
     private final AgenciaProperties propriedades;
 
     public StatusController(ContaService contaService,
-                            ConsultaEventos consultaEventos,
+                            RegistroDeEventos consultaEventos,
                             AgenciaProperties propriedades) {
         this.contaService = contaService;
         this.consultaEventos = consultaEventos;

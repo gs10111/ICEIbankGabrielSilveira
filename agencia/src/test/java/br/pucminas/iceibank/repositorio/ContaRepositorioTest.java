@@ -10,13 +10,13 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ContaRepositorioEmMemoriaTest {
+class ContaRepositorioTest {
 
-    private ContaRepositorioEmMemoria repositorio;
+    private ContaRepositorio repositorio;
 
     @BeforeEach
     void criarRepositorioVazio() {
-        repositorio = new ContaRepositorioEmMemoria();
+        repositorio = new ContaRepositorio();
     }
 
     @Test
