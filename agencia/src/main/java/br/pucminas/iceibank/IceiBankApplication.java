@@ -1,6 +1,6 @@
 package br.pucminas.iceibank;
 
-import br.pucminas.iceibank.infra.ferramentas.MesclarLogs;
+import br.pucminas.iceibank.ferramentas.MesclarLogs;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
