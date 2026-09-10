@@ -27,10 +27,19 @@ public class RegistroDeIdempotencia {
 
     private final Map<String, Registrado> porChave = new ConcurrentHashMap<>();
 
+    /**
+     * A chave e escolhida pelo CLIENTE, entao ela so pode valer dentro da conta que a
+     * enviou. Fosse global por agencia, "op-1" de uma pessoa devolveria o recibo de
+     * outra — ou barraria a transferencia legitima dela com 409.
+     */
+    private static String escopo(String chave, OrdemDeTransferencia ordem) {
+        return ordem.idOrigem() + ":" + chave;
+    }
+
     public Recibo executarUmaVez(String chave, OrdemDeTransferencia ordem, Supplier<Recibo> operacao) {
         boolean[] executouAgora = {false};
 
-        Registrado registrado = porChave.computeIfAbsent(chave, ignorada -> {
+        Registrado registrado = porChave.computeIfAbsent(escopo(chave, ordem), ignorada -> {
             executouAgora[0] = true;
             return new Registrado(ordem, operacao.get());
         });

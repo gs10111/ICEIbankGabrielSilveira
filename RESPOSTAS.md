@@ -58,6 +58,8 @@ A escolha foi **falhar de forma visível**: o 502 diz que o débito foi aplicado
 
 **2. Saga — atomicidade por compensação.** A transferência vira passos locais, cada um com transação compensatória. Débito e crédito commitam separados; falhando o crédito, dispara-se o estorno — operação de negócio nova, não rollback técnico. *Custo:* aceita inconsistência **temporária**, mas não bloqueia.
 
+**Uma perda evitável, já corrigida:** transferir para uma conta que **não existe** no destino queimava o dinheiro igual à queda de agência, e ainda devolvia 502 ("agência indisponível") em vez de 404. Agora o destino é conferido antes do débito. A indisponibilidade continua sendo engolida nessa checagem **de propósito**: se a agência não responde, seguimos em frente para que a falha da Parte D aconteça no crédito, que é onde o roteiro manda registrá-la. O teste `agenciaForaDoArAindaDebitaSemReverter` existe só para impedir que essa checagem apague a Parte D.
+
 **O código já ajuda:** a chamada remota está isolada em `AgenciaRemota`, então trocar o protocolo mexe numa classe só. E a **idempotência** já implementada é pré-requisito de Saga: passos compensatórios são reexecutados sob falha, e sem ela a retentativa aplicaria a operação duas vezes.
 
 ---
@@ -108,7 +110,16 @@ A credencial mora em `seguranca/`, **fora do modelo**: `Conta` cuida de dinheiro
 2. **Tempo de vida incompatível.** O token expira em 15 min; a malha precisa funcionar sem ninguém logado.
 3. **Escopo diferente.** `/creditar-remoto` credita uma conta que não é a do chamador.
 
-No `FiltroJwt`, `X-Agencia-Token` válido libera a requisição como chamada de serviço — para qualquer rota, porque o extrato consolidado também precisa **ler** contas de outras agências.
+O `FiltroJwt` confere **primeiro o caminho** e só então o header. O segredo abre exatamente duas rotas — `/creditar-remoto` (o crédito da Parte D) e `/contas/{id}/interno` (a leitura que o extrato consolidado faz nas outras agências). Em qualquer outra rota ele não vale nada.
+
+**A ordem importa, e custou um bug.** Na primeira versão o header era testado antes do caminho, então um `X-Agencia-Token` válido liberava **toda** a API. Como o valor default está no `application.yml`, qualquer pessoa que lesse o repositório entrava sem login:
+
+```
+GET /contas/0  sem nada             ->  401
+GET /contas/0  com X-Agencia-Token  ->  200   <- o buraco
+```
+
+A leitura remota ganhou rota própria (`/interno`) exatamente por isso: enquanto ela era o mesmo `GET /contas/{id}` do usuário, não havia como liberar uma sem liberar a outra. Travado pelo teste `tokenDeServicoNaoAbreRotaDeUsuario`.
 
 **Limitação assumida:** é segredo compartilhado, não certificado por agência — identifica "alguém do cluster", não "a agência 1". Em produção seria mTLS ou token por serviço com escopo.
 

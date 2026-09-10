@@ -60,6 +60,15 @@ public class ManipuladorDeErros {
         return resposta(HttpStatus.CONFLICT, e.getMessage());
     }
 
+    /**
+     * Entrada fora de faixa (id de conta negativo no Particionador, por exemplo).
+     * Sem este handler o Spring devolveria 500 — culpando o servidor por erro do cliente.
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErroResposta> argumentoInvalido(IllegalArgumentException e) {
+        return resposta(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
     /** Erros das anotacoes de validacao (@NotNull, @Positive) nos DTOs de entrada. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErroResposta> corpoInvalido(MethodArgumentNotValidException e) {

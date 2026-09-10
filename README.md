@@ -137,7 +137,7 @@ O **mesmo jar** roda como as três agências sem recompilar. No Sprint 4, o
 ## Testes
 
 ```bash
-cd agencia && mvn test        # 75 testes
+cd agencia && mvn test        # 89 testes
 ```
 
 | Suíte | Testes | O que cobre |
@@ -153,7 +153,7 @@ cd agencia && mvn test        # 75 testes
 | `ContaControllerTest` | 7 | rotas, códigos HTTP, validação |
 | `AutenticacaoTest` | 10 | os 3 cenários da Parte F + login + chamada interna |
 
-**58 dos 75** rodam **sem subir o Spring** (modelo, serviços e repositórios) e
+**68 dos 89** rodam **sem subir o Spring** (modelo, serviços e repositórios) e
 terminam em menos de um segundo. Só `ContaControllerTest` e `AutenticacaoTest`
 levantam o contexto.
 

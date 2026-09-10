@@ -5,6 +5,7 @@ import br.pucminas.iceibank.modelo.conta.Conta;
 import br.pucminas.iceibank.modelo.conta.ContaJaExisteException;
 import br.pucminas.iceibank.modelo.conta.ContaNaoEncontradaException;
 import br.pucminas.iceibank.modelo.conta.ContaNaoPertenceAgenciaException;
+import br.pucminas.iceibank.modelo.conta.ValorInvalidoException;
 import br.pucminas.iceibank.modelo.evento.Evento;
 import br.pucminas.iceibank.modelo.particao.Particionador;
 import br.pucminas.iceibank.modelo.relogio.Carimbo;
@@ -97,6 +98,9 @@ public class ContaService {
 
     /** FUNCIONALIDADE ADICIONAL 1: historico de eventos de uma conta. */
     public List<Evento> historico(int id, int limite) {
+        if (limite <= 0) {
+            throw new ValorInvalidoException("limite deve ser positivo: " + limite);
+        }
         exigirQueSejaDestaAgencia(id);
         buscarOuFalhar(id);                      // 404 se a conta nao existe
         return eventos.ultimosDaConta(id, limite);

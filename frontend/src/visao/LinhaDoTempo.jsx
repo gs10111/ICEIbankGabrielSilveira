@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
 import { hora } from '../modelo/formato.js'
-import { Blueprint, Tag } from './componentes/Base.jsx'
+import { Alerta, Blueprint, Tag } from './componentes/Base.jsx'
 
 /**
  * VIEW — PARTE E vista pela interface: eventos das 3 agencias ordenados por Lamport.
  * Linhas com timestamp repetido ficam destacadas: sao eventos CONCORRENTES.
  */
-export default function LinhaDoTempo({ eventos, aoGerarConcorrentes }) {
+export default function LinhaDoTempo({ eventos, alerta, aoGerarConcorrentes }) {
   const { ordenados, empates } = useMemo(() => {
     const lista = [...eventos].sort((a, b) =>
       a.timestampLamport - b.timestampLamport || a.horaParede.localeCompare(b.horaParede))
@@ -20,6 +20,7 @@ export default function LinhaDoTempo({ eventos, aoGerarConcorrentes }) {
 
   return (
     <>
+      <Alerta alerta={alerta} />
       <div className="card-kicker">java -jar agencia.jar --mesclar-logs</div>
       <h3>Linha do tempo unificada</h3>
       <p style={{ maxWidth: '78ch', color: 'var(--color-neutral-700)', marginTop: 'var(--space-3)' }}>

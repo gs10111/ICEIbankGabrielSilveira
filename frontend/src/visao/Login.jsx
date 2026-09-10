@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AGENCIAS, agenciaResponsavel } from '../modelo/agencias.js'
-import { api } from '../modelo/api.js'
+import { api, ErroDaApi } from '../modelo/api.js'
 import { Alerta, Blueprint, Campo, Segmentado } from './componentes/Base.jsx'
 import { useAlerta } from '../controle/useAlerta.js'
 
@@ -27,14 +27,14 @@ export default function Login({ aoEntrar }) {
 
     // Checagem no CLIENTE so para dar mensagem melhor: o backend repete a validacao.
     if (!Number.isInteger(conta) || conta < 0) {
-      doErro({ http: 400, message: 'Número de conta inválido' })
+      doErro(new ErroDaApi(400, 'Número de conta inválido: informe um inteiro não negativo.'))
       return
     }
     const dona = agenciaResponsavel(conta)
     if (dona !== agencia) {
-      doErro(Object.assign(new Error(
+      doErro(new ErroDaApi(400,
         `Conta ${conta} pertence à agência ${dona} (porta ${AGENCIAS[dona].porta}). ` +
-        `Cada conta entra apenas pela agência dona dela: ${conta} mod 3 = ${dona}.`), { http: 400 }))
+        `Cada conta entra apenas pela agência dona dela: ${conta} mod 3 = ${dona}.`))
       return
     }
 
