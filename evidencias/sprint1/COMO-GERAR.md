@@ -90,8 +90,19 @@ com 6, o crédito sai com **7**. É a regra 3 de Lamport atravessando a rede.
 
 ## 3. `falha-conhecida.png`
 
+> **Este print mostra um erro que o roteiro MANDA reproduzir**, não um defeito.
+> Seção 2: *"o que este sprint deliberadamente NÃO resolve ainda"*. Tarefa §8.2
+> passo 5 e item 5 do checklist §13: *"a falha conhecida reproduzida e documentada,
+> **não escondida**"*. Perder ponto aqui é não reproduzir; reproduzir é o requisito.
+
+O `echo` abaixo existe para que a **própria imagem** carregue essa explicação —
+quem olhar só o print não precisa ir atrás do README para entender.
+
 ```bash
 date
+echo "PARTE D - falha INTENCIONAL exigida pelo roteiro (secao 2 e tarefa 8.2 passo 5)."
+echo "Sem transacao distribuida, o debito nao e revertido. Sprint 4 resolve com 2PC/Saga."
+
 curl -s localhost:4016/contas/0 -H "$AUTH"; echo      # saldo ANTES
 
 fuser -k 4017/tcp                                     # derruba SÓ a agência 1
@@ -108,6 +119,15 @@ tail -2 agencia/data/eventos-agencia-0.jsonl
 **O que o print precisa mostrar:** o **502**, a mensagem dizendo que o débito foi
 aplicado e não revertido, o saldo menor depois do erro, e os eventos
 `TRANSFERENCIA_DEBITO` seguido de `TRANSFERENCIA_FALHOU`.
+
+Repare que entre os dois eventos **falta um carimbo de Lamport**: ele foi consumido
+pelo `aoEnviar()` da mensagem que nunca chegou. Vale apontar isso no vídeo — é a
+regra 2 de Lamport visível num evento que não existe.
+
+**Ao narrar, diga nesta ordem:** (1) isto é exigido pelo roteiro; (2) o sistema
+**não esconde** — devolve 502 dizendo que o débito ficou aplicado e grava
+`TRANSFERENCIA_FALHOU` com o saldo pós-débito, deixando rastro para reconciliação;
+(3) o conserto correto é transação distribuída, assunto do Sprint 4.
 
 Suba a agência 1 de novo depois:
 ```bash

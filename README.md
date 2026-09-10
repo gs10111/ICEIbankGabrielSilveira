@@ -4,6 +4,11 @@ Banco particionado em **três agências independentes**, cada uma responsável p
 partição de contas (`agência = id_conta % 3`). Toda operação é carimbada com um
 **relógio lógico de Lamport**.
 
+> **Há uma falha intencional nesta entrega.** Uma transferência entre agências que
+> encontra a agência de destino fora do ar **não reverte o débito**. Isso é exigido
+> pelo roteiro (seção 2 e tarefa §8.2), não é defeito: é o problema que o Sprint 4
+> resolve com transações distribuídas. Detalhe em [Limitação conhecida](#limitação-conhecida-intencional).
+
 Projeto da disciplina *Laboratório de Desenvolvimento de Aplicações Móveis e
 Distribuídas* — PUC Minas / ICEI, Unidade U2.
 Aluno: **gabriel silveira** · RA 1466316 (OFFSET **16** → portas 4016/4017/4018).
