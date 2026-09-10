@@ -136,7 +136,7 @@ export default function App() {
                   try { setExtrato(await api.extratoConsolidado(agenciaEntrada, contas)) }
                   catch (erro) { tratar(erro) }
                 }} />,
-    linhaDoTempo: <LinhaDoTempo eventos={eventosGlobais} aoGerarConcorrentes={async () => {
+    linhaDoTempo: <LinhaDoTempo eventos={eventosGlobais} alerta={alerta} aoGerarConcorrentes={async () => {
                     // Um evento local em cada agencia, quase ao mesmo tempo: sem troca de
                     // mensagem entre elas, os contadores avancam de forma independente e colidem.
                     await Promise.all(AGENCIAS.map((a) => {

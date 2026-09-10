@@ -186,5 +186,33 @@ class AutenticacaoTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.saldo").value(25.00));
         }
+
+        @Test
+        @DisplayName("o token de servico NAO abre uma rota de usuario")
+        void tokenDeServicoNaoAbreRotaDeUsuario() throws Exception {
+            // O segredo de servico tem default no application.yml, entao qualquer um que
+            // leia o repositorio o conhece. Ele so pode valer nas rotas internas.
+            mvc().perform(post("/contas")
+                            .header("X-Agencia-Token", seguranca.tokenEntreAgencias())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"id\":612,\"nomeAluno\":\"Intruso\",\"saldoInicial\":10.00}"))
+                    .andExpect(status().isUnauthorized());
+
+            mvc().perform(get("/contas/0").header("X-Agencia-Token", seguranca.tokenEntreAgencias()))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("o token de servico abre a leitura interna que o extrato consolidado usa")
+        void tokenDeServicoAbreALeituraInterna() throws Exception {
+            mvc().perform(post("/contas").header("Authorization", tokenValido())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"id\":615,\"nomeAluno\":\"Nara\",\"saldoInicial\":40.00}"));
+
+            mvc().perform(get("/contas/615/interno")
+                            .header("X-Agencia-Token", seguranca.tokenEntreAgencias()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.saldo").value(40.00));
+        }
     }
 }

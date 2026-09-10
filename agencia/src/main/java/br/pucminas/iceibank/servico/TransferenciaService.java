@@ -109,6 +109,8 @@ public class TransferenciaService {
     // ---------------------------------------------------------- entre agencias
 
     private Recibo transferirEntreAgencias(OrdemDeTransferencia ordem, Conta origem, int agenciaDestino) {
+        exigirQueODestinoExista(ordem, agenciaDestino);
+
         Carimbo carimboDebito = relogio.eventoLocal();
         origem.sacar(ordem.valor());                  // Conta valida saldo e valor
         repositorio.salvar(origem);
@@ -132,6 +134,27 @@ public class TransferenciaService {
                 ordem.idOrigem(), ordem.idDestino(), ordem.valor(), origem.saldo(), false);
     }
 
+    /**
+     * Sem esta checagem, transferir para uma conta que nao existe na outra agencia
+     * queima o dinheiro do mesmo jeito que a falha da Parte D — mas por um motivo
+     * que da para evitar, e devolvendo 502 ("agencia indisponivel") em vez de 404.
+     *
+     * A indisponibilidade e engolida DE PROPOSITO: se a agencia nao responde aqui,
+     * seguimos em frente para que a falha conhecida aconteca no credito, que e onde
+     * o roteiro manda registra-la. Trocar isso por um erro limpo antes do debito
+     * apagaria a Parte D — o teste agenciaForaDoArAindaDebitaSemReverter trava isso.
+     */
+    private void exigirQueODestinoExista(OrdemDeTransferencia ordem, int agenciaDestino) {
+        try {
+            if (agenciaRemota.consultar(agenciaDestino, ordem.idDestino()).isEmpty()) {
+                throw new ContaNaoEncontradaException("conta de destino nao existe na agencia "
+                        + agenciaDestino + ": " + ordem.idDestino());
+            }
+        } catch (AgenciaRemotaIndisponivelException indisponivel) {
+            // segue: a falha conhecida da Parte D e registrada no credito
+        }
+    }
+
     // ------------------------------------------------------------ credito remoto
 
     /**
@@ -142,6 +165,14 @@ public class TransferenciaService {
      */
     public Conta creditarRemoto(int idConta, BigDecimal valor, Carimbo carimboRecebido, int agenciaOrigem) {
         Carimbo carimbo = relogio.aoReceber(carimboRecebido);
+
+        // Sem isto a recusa seria efeito colateral de a conta nao existir localmente,
+        // e o cliente veria 404 ("nao encontrada") no lugar de 400 ("nao e minha").
+        if (!particionador.pertenceA(idConta, idAgencia)) {
+            throw new ContaNaoPertenceAgenciaException(
+                    "conta " + idConta + " nao pertence a agencia " + idAgencia
+                            + " (responsavel: agencia " + particionador.agenciaResponsavel(idConta) + ")");
+        }
 
         Conta conta = repositorio.buscar(idConta)
                 .orElseThrow(() -> new ContaNaoEncontradaException(

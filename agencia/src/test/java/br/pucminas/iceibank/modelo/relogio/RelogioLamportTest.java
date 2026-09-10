@@ -129,4 +129,37 @@ class RelogioLamportTest {
                 "carimbos repetidos: o contador nao e thread-safe");
     }
 
+    @Test
+    @DisplayName("cem recebimentos simultaneos tambem geram cem carimbos distintos")
+    void aoReceberEhSeguroSobConcorrencia() throws InterruptedException {
+        // aoReceber tem a MESMA corrida do eventoLocal (ler-modificar-escrever sobre
+        // contador), mas so era protegido por inspecao do codigo. Aqui vira teste.
+        int totalThreads = 100;
+        Set<Carimbo> carimbos = ConcurrentHashMap.newKeySet();
+        ExecutorService pool = Executors.newFixedThreadPool(16);
+        CountDownLatch largada = new CountDownLatch(1);
+        CountDownLatch chegada = new CountDownLatch(totalThreads);
+
+        for (int i = 0; i < totalThreads; i++) {
+            pool.submit(() -> {
+                try {
+                    largada.await();
+                    // carimbo recebido sempre baixo: quem faz o contador andar e o +1
+                    carimbos.add(relogio.aoReceber(new CarimboLamport(1)));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    chegada.countDown();
+                }
+            });
+        }
+
+        largada.countDown();
+        chegada.await();
+        pool.shutdown();
+
+        assertEquals(totalThreads, carimbos.size(),
+                "carimbos repetidos: aoReceber nao e thread-safe");
+    }
+
 }

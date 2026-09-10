@@ -23,7 +23,7 @@ import java.util.Optional;
  *
  * REGRAS:
  *  - /auth/ (qualquer)     publico (senao ninguem consegue obter token)
- *  - header X-Agencia-Token valido -> chamada AGENCIA-A-AGENCIA, liberada
+ *  - /creditar-remoto e /interno  exigem o header X-Agencia-Token (e SO ele)
  *  - todo o resto           exige Authorization: Bearer <jwt> valido
  *
  * DECISAO (pergunta 11.1.5 do roteiro): a chamada interna NAO carrega JWT de usuario.
@@ -57,13 +57,14 @@ public class FiltroJwt extends OncePerRequestFilter {
             return;
         }
 
-        // Chamada agencia-a-agencia: autentica com o segredo de servico, nao com JWT.
-        if (tokenDeServicoConfere(requisicao)) {
-            corrente.doFilter(requisicao, resposta);
-            return;
-        }
-
-        if (ehChamadaEntreAgencias(caminho)) {
+        // Rota interna: autentica com o segredo de servico, NUNCA com JWT de usuario.
+        // O teste vem depois de checar o caminho de proposito — o segredo tem default
+        // no application.yml, entao ele nao pode abrir rota nenhuma fora desta lista.
+        if (ehRotaInterna(caminho)) {
+            if (tokenDeServicoConfere(requisicao)) {
+                corrente.doFilter(requisicao, resposta);
+                return;
+            }
             recusar(resposta, "chamada entre agencias exige o header X-Agencia-Token valido");
             return;
         }
@@ -89,8 +90,14 @@ public class FiltroJwt extends OncePerRequestFilter {
         return caminho.startsWith("/auth/") || caminho.equals("/status") || caminho.equals("/error");
     }
 
-    private boolean ehChamadaEntreAgencias(String caminho) {
-        return caminho.endsWith("/creditar-remoto");
+    /**
+     * As UNICAS rotas que o segredo de servico abre:
+     *  - /creditar-remoto  a agencia de origem credita no destino (Parte D)
+     *  - /interno          a leitura que o extrato consolidado faz nas outras agencias
+     * Qualquer outra rota exige JWT de usuario, mesmo com o header presente.
+     */
+    private boolean ehRotaInterna(String caminho) {
+        return caminho.endsWith("/creditar-remoto") || caminho.endsWith("/interno");
     }
 
     private boolean tokenDeServicoConfere(HttpServletRequest requisicao) {

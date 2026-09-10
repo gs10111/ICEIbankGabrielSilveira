@@ -124,4 +124,22 @@ class ContaControllerTest {
                 .andExpect(jsonPath("$[1].tipo").value("CRIAR_CONTA"))
                 .andExpect(jsonPath("$[0].timestampLamport").isNumber());
     }
+
+    @Test
+    @DisplayName("limite negativo no historico e erro do cliente (400), nao do servidor")
+    void limiteNegativoNoHistoricoDevolve400() throws Exception {
+        mvc().perform(post("/contas").header("Authorization", autorizacao()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\":318,\"nomeAluno\":\"Rui\",\"saldoInicial\":10.00}"));
+
+        mvc().perform(get("/contas/318/historico?limite=-1").header("Authorization", autorizacao()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").value(org.hamcrest.Matchers.containsString("limite")));
+    }
+
+    @Test
+    @DisplayName("id de conta negativo e erro do cliente (400), nao do servidor")
+    void idNegativoDevolve400() throws Exception {
+        mvc().perform(get("/contas/-1").header("Authorization", autorizacao()))
+                .andExpect(status().isBadRequest());
+    }
 }

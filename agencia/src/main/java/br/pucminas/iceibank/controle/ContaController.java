@@ -62,6 +62,16 @@ public class ContaController {
         return ContaResposta.de(servico.consultar(id), idAgencia);
     }
 
+    /**
+     * Leitura ENTRE AGENCIAS, usada pelo extrato consolidado. Separada de GET /contas/{id}
+     * porque o segredo de servico so pode abrir rota interna — se as duas fossem a mesma
+     * rota, o segredo abriria a consulta de saldo de qualquer pessoa.
+     */
+    @GetMapping("/{id}/interno")
+    public ContaResposta consultarInterno(@PathVariable int id) {
+        return ContaResposta.de(servico.consultar(id), idAgencia);
+    }
+
     @PostMapping("/{id}/depositar")
     public ContaResposta depositar(@PathVariable int id, @Valid @RequestBody ValorRequest pedido) {
         return ContaResposta.de(servico.depositar(id, pedido.valor()), idAgencia);

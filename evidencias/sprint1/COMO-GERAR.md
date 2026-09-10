@@ -21,6 +21,29 @@ AUTH="Authorization: Bearer $TOKEN"
 
 ---
 
+## 0. `agencias-no-ar.png` e `particao-recusa.png`
+
+Nao estao na lista obrigatoria do roteiro, mas sao os dois prints que sustentam
+todo o resto: provam que sao 3 processos do MESMO jar e que a particao e real.
+
+```bash
+date
+ps -ef | grep "[i]ceibank-agencia" | awk '{print $2, $8, $9, $10}'   # 3 PIDs, mesmo jar
+for p in 4016 4017 4018; do curl -s localhost:$p/status; echo; done
+```
+Aponte no print: as 3 agencias respondem `"contas":2` — e ninguem configurou isso
+conta a conta. Cada agencia tentou criar as 6 contas de demonstracao e o
+`Particionador` recusou as 4 que nao sao dela.
+
+```bash
+date
+curl -s -o /dev/null -w "conta 1 na agencia 0: HTTP %{http_code}\n" -H "$AUTH" localhost:4016/contas/1
+curl -s -o /dev/null -w "conta 1 na agencia 1: HTTP %{http_code}\n" -H "$AUTH" localhost:4017/contas/1
+```
+Esperado: **400** na agencia 0 e **200** na agencia 1. `1 % 3 = 1`.
+
+---
+
 ## 1. `transferencia-local.png`
 
 Transferência dentro da agência 0 (conta 0 → conta 3; ambas `% 3 == 0`).
@@ -193,4 +216,4 @@ curl -s "localhost:4016/extrato-consolidado?contas=0,4" -H "$AUTH" | python3 -m 
 date
 cd agencia && mvn test
 ```
-Mostre `Tests run: 72, Failures: 0, Errors: 0`.
+Mostre `Tests run: 89, Failures: 0, Errors: 0`.

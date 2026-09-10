@@ -23,7 +23,10 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -207,6 +210,18 @@ class TransferenciaServiceTest {
         }
 
         @Test
+        @DisplayName("a chave vale por conta de origem: duas contas podem usar a mesma")
+        void chaveDeIdempotenciaEhPorContaDeOrigem() {
+            repositorio.salvar(new Conta(6, "Elis", new BigDecimal("50.00")));   // 6 % 3 == 0
+
+            servico.executar(new OrdemDeTransferencia("op-1", 0, 3, new BigDecimal("10.00")));
+            Recibo daOutraConta = servico.executar(new OrdemDeTransferencia("op-1", 6, 3, new BigDecimal("10.00")));
+
+            assertThat(daOutraConta.reenvio()).isFalse();
+            assertThat(repositorio.buscar(6).orElseThrow().saldo()).isEqualByComparingTo("40.00");
+        }
+
+        @Test
         @DisplayName("mesma chave com dados diferentes e conflito, nao reenvio")
         void mesmaChaveComDadosDiferentesEhConflito() {
             servico.executar(new OrdemDeTransferencia("chave-1", 0, 3, new BigDecimal("10.00")));
@@ -228,9 +243,48 @@ class TransferenciaServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("destino remoto e particao")
+    class DestinoRemoto {
+
+        @Test
+        @DisplayName("destino que nao existe na outra agencia NAO debita a origem")
+        void destinoRemotoInexistenteNaoDebita() {
+            agenciaRemota.contasQueExistemLa.remove(1);
+
+            assertThrows(ContaNaoEncontradaException.class, () -> servico.executar(ordem(0, 1, "30.00")));
+
+            assertThat(repositorio.buscar(0).orElseThrow().saldo()).isEqualByComparingTo("100.00");
+            assertThat(agenciaRemota.chamadas).isZero();
+        }
+
+        @Test
+        @DisplayName("agencia fora do ar AINDA produz a falha conhecida da Parte D")
+        void agenciaForaDoArAindaDebitaSemReverter() {
+            // Guarda-costas da pre-checagem acima: ela NAO pode transformar a falha
+            // exigida pelo roteiro num erro limpo antes do debito.
+            agenciaRemota.forcarIndisponibilidade();
+
+            assertThrows(AgenciaRemotaIndisponivelException.class, () -> servico.executar(ordem(0, 1, "30.00")));
+
+            assertThat(repositorio.buscar(0).orElseThrow().saldo()).isEqualByComparingTo("70.00");
+            assertThat(registro.eventos).extracting(Evento::tipo)
+                    .containsExactly("TRANSFERENCIA_DEBITO", "TRANSFERENCIA_FALHOU");
+        }
+
+        @Test
+        @DisplayName("creditar-remoto recusa conta que nao e desta agencia (400, nao 404)")
+        void creditarRemotoRecusaContaDeOutraAgencia() {
+            // conta 1 pertence a agencia 1; esta e a agencia 0
+            assertThrows(ContaNaoPertenceAgenciaException.class,
+                    () -> servico.creditarRemoto(1, new BigDecimal("10.00"), new CarimboLamport(9), 1));
+        }
+    }
+
     // ------------------------------------------------------------------ fakes
 
     private static class AgenciaRemotaFalsa extends AgenciaRemota {
+        final Set<Integer> contasQueExistemLa = new HashSet<>(Set.of(1, 2));
         int chamadas;
         int ultimaAgenciaDestino;
         Carimbo ultimoCarimbo;
@@ -246,6 +300,16 @@ class TransferenciaServiceTest {
 
         void voltarAoAr() {
             noAr = true;
+        }
+
+        @Override
+        public Optional<ContaRemota> consultar(int idAgencia, int idConta) {
+            if (!noAr) {
+                throw new AgenciaRemotaIndisponivelException("agencia " + idAgencia + " fora do ar", null);
+            }
+            return contasQueExistemLa.contains(idConta)
+                    ? Optional.of(new ContaRemota(idConta, "Titular " + idConta, new BigDecimal("500.00"), idAgencia))
+                    : Optional.empty();
         }
 
         @Override

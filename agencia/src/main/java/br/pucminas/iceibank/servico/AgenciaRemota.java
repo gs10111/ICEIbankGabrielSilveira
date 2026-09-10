@@ -62,7 +62,7 @@ public class AgenciaRemota {
 
     /** Vazio se a conta nao existe la; excecao se a agencia nao respondeu. */
     public Optional<ContaRemota> consultar(int idAgencia, int idConta) {
-        String url = propriedades.urlDa(idAgencia) + "/contas/" + idConta;
+        String url = propriedades.urlDa(idAgencia) + "/contas/" + idConta + "/interno";
         try {
             return Optional.ofNullable(http.get().uri(url)
                     .header("X-Agencia-Token", tokenEntreAgencias)
