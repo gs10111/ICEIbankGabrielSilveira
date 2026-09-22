@@ -36,15 +36,17 @@ Porque as regras 2 e 3 existem **para sincronizar relógios diferentes**, e na l
 
 Entre agências há **mensagem real**: a origem faz `aoEnviar()` e anexa o carimbo; o destino faz `aoReceber(carimbo)` em `/creditar-remoto`. É esse par que propaga o "aconteceu-antes" entre processos.
 
-Evidência no log: débito na agência 0 com carimbo 5, envio consumiu o 6, crédito remoto na agência 1 (que estava em 1) saiu com **7 = max(1, 6) + 1**. O salto de 1 para 7 é a causalidade viajando pela rede.
+**Evidência — local** (`evidencias/sprint1/transferencia-local.png`): transferência de R$ 100 da conta 0 para a 3, ambas na agência 0. Dois eventos locais, carimbos **3** e **4**, com a *mesma* `horaParede` — nenhuma mensagem foi trocada.
+
+**Evidência — entre agências** (`evidencias/sprint1/transferencia-entre-agencias.png`): transferência de R$ 50 da conta 0 para a 1. Débito na agência 0 com carimbo **7**; o `aoEnviar()` consumiu o **8**; a agência 1, que estava em **2** (os dois `CRIAR_CONTA` do boot), registrou o crédito remoto com **9 = max(2, 8) + 1**. O salto de 2 para 9 é a causalidade viajando pela rede.
 
 ### 8.3.2 — O saldo da origem foi revertido? O que significa?
 
-**Não foi.** Reprodução (`evidencias/sprint1/falha-conhecida.png`): saldo da conta 0 em **R$ 35,00**, agência 1 derrubada (`fuser -k 4017/tcp`), transferência de R$ 20 → **HTTP 502**, saldo depois **R$ 15,00**.
+**Não foi.** Reprodução (`evidencias/sprint1/falha-conhecida.png`): saldo da conta 0 em **R$ 750,00**, agência 1 derrubada (porta 4017, PID 22968), transferência de R$ 20 → **HTTP 502**, saldo depois **R$ 730,00**.
 
 ```
-TRANSFERENCIA_DEBITO   Lamport  9   {valor:20, idDestino:1, idOrigem:0}
-TRANSFERENCIA_FALHOU   Lamport 11   {erro:"Connection refused", saldoOrigemAposDebito:15.00}
+TRANSFERENCIA_DEBITO   Lamport  9   {valor:20.00, idOrigem:0, idDestino:1}
+TRANSFERENCIA_FALHOU   Lamport 11   {erro:"Connection refused", saldoOrigemAposDebito:730.00}
 ```
 O carimbo 10 foi consumido pelo `aoEnviar()` da mensagem que nunca chegou.
 
@@ -82,13 +84,16 @@ Por isso `Comparable` seria a abstração errada para o carimbo: promete ordem *
 
 ### Observação do passo 3 (§10.2) — empates encontrados
 
-`--mesclar-logs` achou **dois** empates numa execução comum (`evidencias/sprint1/linha-do-tempo.png`):
+`--mesclar-logs` achou **três** empates numa execução comum — 14 eventos, 3 agências
+(`evidencias/sprint1/linha-do-tempo-part1.png` e `linha-do-tempo-part2.png`):
 
-**Lamport 1** — `agencia-0 CRIAR_CONTA` (12:50:00.541) e `agencia-1 CRIAR_CONTA` (12:50:01.452). **Concorrentes**: cada agência subiu e criou suas contas sem trocar mensagem.
+**Lamport 1** — os três `CRIAR_CONTA`: `agencia-0` (00:41:56.273), `agencia-1` (00:41:56.379) e `agencia-2` (00:41:56.432). **Concorrentes**: cada agência subiu e criou as próprias contas de demonstração sem trocar mensagem com ninguém.
 
-**Lamport 7** — `agencia-1 TRANSFERENCIA_CREDITO_REMOTO` (12:50:01.872) e `agencia-0 TRANSFERENCIA_DEBITO` (12:50:01.959). Também **concorrentes**, e este é o caso interessante porque *parece* relacionado: o crédito remoto veio de uma transferência anterior (R$ 25) e o débito é de outra, posterior (R$ 10).
+**Lamport 2** — de novo os três `CRIAR_CONTA`: `agencia-0` (00:41:56.521), `agencia-1` (00:41:56.589) e `agencia-2` (00:41:56.611). Mesmo motivo: cada agência carrega **duas** contas no boot, então o segundo carimbo das três cai no mesmo valor.
 
-**Contra a hora de parede:** as duas ordens coincidiram, mas isso é **coincidência de as 3 agências rodarem na mesma máquina**, com o mesmo relógio de hardware. Em máquinas distintas a ordem física poderia inverter sem nada estar errado. Por isso `horaParede` é gravado mas **nenhuma decisão do sistema o consulta**.
+**Lamport 9** — `agencia-1 TRANSFERENCIA_CREDITO_REMOTO` (00:48:26.844) e `agencia-0 TRANSFERENCIA_DEBITO` (00:49:00.222). Também **concorrentes**, e este é o caso interessante porque *parece* relacionado: o crédito remoto veio de uma transferência anterior (R$ 50, que deixou a conta 1 com R$ 850), e o débito é de outra, posterior (R$ 20) — justamente a que falhou, porque a agência 1 já tinha sido derrubada.
+
+**Contra a hora de parede:** a hora de parede *sugere* uma ordem no caso do Lamport 9 — o crédito às 00:48:26 antes do débito às 00:49:00 — mas o relógio de Lamport dá o **mesmo** carimbo aos dois, e é o Lamport que está certo: nenhum causou o outro. Aqui as 3 agências rodam na mesma máquina, com o mesmo relógio de hardware; em máquinas distintas a ordem física poderia até inverter sem nada estar errado. Por isso `horaParede` é gravado mas **nenhuma decisão do sistema o consulta**.
 
 ---
 
@@ -118,6 +123,8 @@ O `FiltroJwt` confere **primeiro o caminho** e só então o header. O segredo ab
 GET /contas/0  sem nada             ->  401
 GET /contas/0  com X-Agencia-Token  ->  200   <- o buraco
 ```
+
+**Evidência dos dois cenários de usuário:** `evidencias/sprint1/print1.png` (captura do JWT em `POST /auth/login`), `sem-token.png` (`GET /contas/0` sem header → **401** `token ausente`) e `com-token.png` (o mesmo GET com `Authorization: Bearer` → **200**, saldo R$ 730,00).
 
 A leitura remota ganhou rota própria (`/interno`) exatamente por isso: enquanto ela era o mesmo `GET /contas/{id}` do usuário, não havia como liberar uma sem liberar a outra. Travado pelo teste `tokenDeServicoNaoAbreRotaDeUsuario`.
 
@@ -201,7 +208,7 @@ if (erro instanceof ErroDaApi && erro.http === 401) {
 }
 ```
 
-A pessoa vê a faixa com o título **"Sessão expirada"**, o código HTTP e a frase em português; 2,5 s depois volta o login — tempo de ler sem ficar presa numa tela morta. **Não é erro genérico nem fica no console:** `useAlerta` traduz cada código num título legível (`401 → "Sessão expirada"`, `502 → "Falha entre agências"`, `503 → "Agência fora do ar"`). Há ainda o botão **"Expirar token"**, que invalida na hora — existe para produzir o print `auth-token-expirado.png` sem esperar 15 minutos.
+A pessoa vê a faixa com o título **"Sessão expirada"**, o código HTTP e a frase em português; 2,5 s depois volta o login — tempo de ler sem ficar presa numa tela morta. **Não é erro genérico nem fica no console:** `useAlerta` traduz cada código num título legível (`401 → "Sessão expirada"`, `502 → "Falha entre agências"`, `503 → "Agência fora do ar"`). Há ainda o botão **"Expirar token"** (visível em `evidencias/sprint1/frontend-1.png`, ao lado do contador `token 896s`), que invalida a sessão na hora — existe para demonstrar o caminho do 401 sem esperar 15 minutos.
 
 ### 12.3.3 — Onde ficam o M, o V e o C?
 
@@ -239,6 +246,8 @@ Foram implementadas **três** (o roteiro exige pelo menos uma).
 
 A busca procura o id nos campos `id`, `idConta`, `idOrigem` e `idDestino`, então uma transferência aparece no histórico das **duas** contas. **Testes:** `ContaServiceTest` (ordem, limite, conta inexistente) e `ContaControllerTest.historicoDaConta`.
 
+**Evidência** (`evidencias/sprint1/historico-conta.png`, bloco *EXTRA 1*): histórico da conta 0, do mais recente ao mais antigo — Lamport 11 `TRANSFERENCIA_FALHOU` 20.0, Lamport 9 `TRANSFERENCIA_DEBITO` 20.0, Lamport 7 `TRANSFERENCIA_DEBITO` 50.0, Lamport 6 `TRANSFERENCIA_CREDITO` 100.0, Lamport 5 `TRANSFERENCIA_DEBITO` 100.0.
+
 ### 2. Idempotência de transferências
 
 O cliente envia `Idempotency-Key: <valor>` (header, convenção de mercado) ou `chaveIdempotencia` no corpo. A primeira requisição executa; reenvios da **mesma chave** devolvem o recibo original com `reenvio: true`, **sem debitar de novo**.
@@ -255,23 +264,94 @@ O cliente envia `Idempotency-Key: <valor>` (header, convenção de mercado) ou `
 
 **Testes:** `TransferenciaServiceTest.Idempotencia` — 5 casos.
 
+**Evidência** (`evidencias/sprint1/historico-conta.png`, bloco *EXTRA 2*): a mesma chave enviada duas vezes devolve o recibo com `reenvio: false` e depois `reenvio: true`, e o saldo da origem fica em R$ 720,00 nas duas — **não debitou de novo**. A mesma chave com valor diferente devolve **HTTP 409**: `chave de idempotência 'demo-001' já foi usada para outra transferência`. Na interface, o campo `IDEMPOTENCY-KEY` aparece em `evidencias/sprint1/tranfarencia-front.png`.
+
 ### 3. Extrato consolidado
 
-`GET /extrato-consolidado?contas=0,4` soma saldos de várias contas do mesmo titular, **mesmo em agências diferentes**; para cada conta a agência decide pela regra de partição se busca local ou remotamente. Ana Souza tem a conta 0 (agência 0) e a 4 (agência 1): o extrato devolve `total: 1250.00`.
+`GET /extrato-consolidado?contas=0,4` soma saldos de várias contas do mesmo titular, **mesmo em agências diferentes**; para cada conta a agência decide pela regra de partição se busca local ou remotamente. Ana Souza tem a conta 0 (agência 0) e a 4 (agência 1). No boot o total é R$ 1.250,00 (R$ 1.000,00 + R$ 250,00); depois das movimentações da demonstração, R$ 970,00.
 
 **Por quê:** é a primeira **leitura distribuída** do sistema, e expõe um limite que nenhuma outra parte do sprint mostra.
 
 **O limite, que está no código:** o total **não é snapshot atômico**. As agências são consultadas uma a uma e uma transferência pode acontecer entre duas leituras, produzindo um total que nunca existiu. Por isso o resultado carrega `consistente` e cada conta carrega `disponivel`: se uma agência não responder, devolve-se um total **rotulado como parcial** em vez de um número errado sem aviso. É a leitura sofrendo do mesmo problema que a escrita sofre na Parte D.
 
-**Evidência:** `evidencias/sprint1/funcionalidade-adicional.png`
+**Evidência** (`evidencias/sprint1/historico-conta.png`, bloco *EXTRA 3*):
+
+```json
+{"total":970.00,"contas":[
+  {"id":0,"nomeAluno":"Ana Souza","saldo":720.00,"agencia":0,"disponivel":true},
+  {"id":4,"nomeAluno":"Ana Souza","saldo":250.00,"agencia":1,"disponivel":true}],
+ "consistente":true}
+```
+
+A conta 0 foi lida **localmente** e a 4 **pela rede**, na agência 1 — e o `consistente: true` diz que as duas responderam. `ExtratoConsolidadoServiceTest` (5 testes) cobre também o caminho em que uma agência não responde e o total sai rotulado `consistente: false`. A tela está em `evidencias/sprint1/frontend-1.png`, menu *Conta → Extrato consolidado*.
+
+---
+
+## Índice de evidências
+
+Os 18 prints de `evidencias/sprint1/`, e o que cada um prova. Todos saíram da **mesma
+execução** de 13–14/09/2026, com as três agências no mesmo host — por isso os carimbos de
+Lamport são contínuos entre eles.
+
+### Execução e particionamento
+
+| Print | O que prova |
+|---|---|
+| `print2.png` | As **três agências** subindo: o *mesmo* `iceibank-agencia-1.0.0.jar` em 4016, 4017 e 4018, cada uma carregando as 2 contas da própria partição (12-Factor III) |
+| `print3.png` | Três PIDs do mesmo jar + `GET /status` das três: `totalDeAgencias:3`, `contas:2`, `eventos:2`, `relogioLamport:2` em cada uma |
+| `particao-recusa.png` | A regra `id % 3` recusando: conta 1 na agência 0 → **HTTP 400**; a mesma conta 1 na agência 1 → **HTTP 200** |
+
+### Parte B — Relógio de Lamport
+
+| Print | O que prova |
+|---|---|
+| `transferencia-local.png` | Transferência local (0 → 3, R$ 100): dois `eventoLocal()`, carimbos **3** e **4**, mesma `horaParede`, sem envio/recebimento |
+| `transferencia-entre-agencias.png` | Transferência entre agências (0 → 1, R$ 50): débito **7** na agência 0, crédito remoto **9** na agência 1 — `max(2, 8) + 1` |
+
+### Parte D — Transferências e a falha conhecida
+
+| Print | O que prova |
+|---|---|
+| `falha-conhecida.png` | A falha **exigida pelo roteiro**: saldo R$ 750,00, agência 1 derrubada, transferência de R$ 20 → **HTTP 502**, saldo R$ 730,00. `TRANSFERENCIA_DEBITO` Lamport 9 e `TRANSFERENCIA_FALHOU` Lamport 11 com `saldoOrigemAposDebito: 730.00` |
+
+### Parte E — Linha do tempo unificada
+
+| Print | O que prova |
+|---|---|
+| `linha-do-tempo-part1.png` | Saída de `--mesclar-logs`: 14 eventos, 3 agências, **3 timestamps empatados** |
+| `linha-do-tempo-part2.png` | A análise dos três empates (Lamport 1, 2 e 9) e a conclusão sobre `A → B ⟹ ts(A) < ts(B)` não valer na volta |
+| `linha-do-tempo-front.png` | A mesma linha do tempo na interface, com a coluna `L` (carimbo), a agência de origem e os empates destacados |
+
+### Parte F — Autenticação JWT
+
+| Print | O que prova |
+|---|---|
+| `print1.png` | `POST /auth/login` devolvendo o JWT (`eyJhbGciOiJIUzI1NiJ9...` — o header já denuncia o **HS256**) |
+| `sem-token.png` | Rota protegida sem header → **HTTP 401**, `token ausente: envie Authorization: Bearer <token>` |
+| `com-token.png` | A mesma rota com `Authorization: Bearer` → **HTTP 200**, `expiraEmSegundos: 900` |
+
+### Parte G — Frontend
+
+| Print | O que prova |
+|---|---|
+| `frontend-1.png` | A aplicação rodando em `localhost:5173`: painel da conta 0, seletor das 3 agências, contador `Lamport 13`, `token 896s`, botão *Expirar token*, e o DevTools mostrando as chamadas autenticadas |
+| `saque-acerto.png` | Saque pela interface: *Saque efetuado — novo saldo da conta 0: R$ 180* |
+| `saque-erro.png` | Saque inválido: **HTTP 400** traduzido na tela como *Requisição inválida — saldo insuficiente: saldo=200.00, valor=800* |
+| `tranfarencia-front.png` | Transferência concluída com **rota calculada** antes do envio (*local — destino na própria agência 0*) e `IDEMPOTENCY-KEY` preenchida |
+| `treanfarencia-erro.png` | Transferência recusada: **HTTP 400** com *saldo insuficiente: saldo=200.00, valor=20000* — o erro do domínio chega íntegro na tela |
+
+### Funcionalidades adicionais
+
+| Print | O que prova |
+|---|---|
+| `historico-conta.png` | As **três** de uma vez: *EXTRA 1* histórico da conta 0 (Lamport 11 → 5); *EXTRA 2* idempotência (`reenvio: false` → `reenvio: true` sem debitar de novo, e **409** para a mesma chave com outro valor); *EXTRA 3* extrato consolidado `total: 970.00` com `consistente: true` |
 
 ---
 
 ## Declaração de uso de IA
 
-_(PREENCHER — rascunho; ajuste para descrever com precisão o que aconteceu, porque é você quem assina.)_
-
-Utilizei o Claude (Anthropic) como apoio ao longo do sprint:
+Eu, **gabriel silveira**, RA **1466316**, declaro que utilizei o Claude (Anthropic) como
+ferramenta de apoio ao longo deste sprint, nos termos abaixo.
 
 - **Explicação conceitual e revisão socrática** na primeira metade: o relógio de Lamport, o particionamento e o modelo (`Conta`, `Particionador`, `RelogioLamport`) foram escritos por mim, com a IA revisando cada ciclo de TDD e explicando os erros — o bug de fronteira no `Particionador` (`> 1` onde devia ser `> 0`), a condição de corrida no contador e a armadilha de imutabilidade do `BigDecimal`.
 - **Geração de código sob orientação** na segunda metade (camada web, transferências, JWT, frontend), por restrição de prazo, seguindo decisões que eu havia tomado antes: filtro JWT à mão em vez de Spring Security, carimbo opaco em vez de `int`, falha da Parte D registrada em vez de escondida.
@@ -281,3 +361,8 @@ Utilizei o Claude (Anthropic) como apoio ao longo do sprint:
 Sou capaz de explicar e defender qualquer trecho entregue. As decisões registradas aqui — por que o carimbo não implementa `Comparable`, por que a chamada entre agências não carrega JWT de usuário, por que a falha da Parte D não é revertida, por que as portas de uma implementação só foram removidas — foram decididas por mim antes de virarem código.
 
 **Limitação documentada por escolha própria:** a implementação verifica autenticação mas não autorização por recurso (11.3.1). Optei por registrar em vez de omitir.
+
+Declaro que o conteúdo entregue é de minha autoria e responsabilidade, e que o uso da
+ferramenta está descrito acima sem omissão.
+
+**gabriel silveira** — RA 1466316 — PUC Minas / ICEI

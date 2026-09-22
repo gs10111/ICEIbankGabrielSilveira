@@ -147,16 +147,17 @@ cd agencia && mvn test        # 89 testes
 
 | Suíte | Testes | O que cobre |
 |---|---|---|
-| `RelogioLamportTest` | 7 | as 3 regras + concorrência (100 threads) |
+| `RelogioLamportTest` | 8 | as 3 regras + concorrência (100 threads em `eventoLocal` e em `aoReceber`) |
 | `ParticionadorTest` | 5 | `id % 3`, fronteiras, entradas inválidas |
 | `ContaTest` | 6 | invariantes de saldo, `BigDecimal` |
 | `ContaServiceTest` | 16 | casos de uso + Lamport aplicado + histórico |
-| `TransferenciaServiceTest` | 14 | local, entre agências, **falha conhecida**, idempotência |
+| `TransferenciaServiceTest` | 18 | local, entre agências, **falha conhecida**, idempotência |
+| `ExtratoConsolidadoServiceTest` | 5 | soma local + remota, agência fora do ar, `consistente: false` |
 | `ContaRepositorioTest` | 4 | persistência em memória |
 | `RegistroDeEventosTest` | 3 | formato `.jsonl` |
 | `JwtServiceTest` | 3 | algoritmo HS256 fixo, claims, token de outro emissor |
-| `ContaControllerTest` | 7 | rotas, códigos HTTP, validação |
-| `AutenticacaoTest` | 10 | os 3 cenários da Parte F + login + chamada interna |
+| `ContaControllerTest` | 9 | rotas, códigos HTTP, validação |
+| `AutenticacaoTest` | 12 | os 3 cenários da Parte F + login + chamada interna + bypass do token de serviço |
 
 **68 dos 89** rodam **sem subir o Spring** (modelo, serviços e repositórios) e
 terminam em menos de um segundo. Só `ContaControllerTest` e `AutenticacaoTest`
