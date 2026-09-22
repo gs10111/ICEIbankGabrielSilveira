@@ -93,6 +93,15 @@ Por isso `Comparable` seria a abstração errada para o carimbo: promete ordem *
 
 **Lamport 9** — `agencia-1 TRANSFERENCIA_CREDITO_REMOTO` (00:48:26.844) e `agencia-0 TRANSFERENCIA_DEBITO` (00:49:00.222). Também **concorrentes**, e este é o caso interessante porque *parece* relacionado: o crédito remoto veio de uma transferência anterior (R$ 50, que deixou a conta 1 com R$ 850), e o débito é de outra, posterior (R$ 20) — justamente a que falhou, porque a agência 1 já tinha sido derrubada.
 
+**O que o print do frontend mostra a mais.** Em `linha-do-tempo-front.png` a agência 1
+aparece com `CRIAR_CONTA` carimbado **1** duas vezes — às 21:41:56 e de novo às 21:51:01 —
+e o mesmo com o carimbo **2**. Não é concorrência: é a agência tendo sido **reiniciada**.
+O `.jsonl` é aberto em `APPEND` e sobrevive ao restart, mas o contador vivia só em memória
+e voltava a zero, então os carimbos recomeçavam sobre um log que já tinha carimbos maiores.
+Um empate assim é **falso** — os dois eventos nem são concorrentes, são do mesmo processo,
+em ordem. Corrigido: o relógio é restaurado do maior carimbo do arquivo ao subir
+(`BeansDaAgencia.relogioLamport`), travado por `relogioRestauradoContinuaDeOndeOLogParou`.
+
 **Contra a hora de parede:** a hora de parede *sugere* uma ordem no caso do Lamport 9 — o crédito às 00:48:26 antes do débito às 00:49:00 — mas o relógio de Lamport dá o **mesmo** carimbo aos dois, e é o Lamport que está certo: nenhum causou o outro. Aqui as 3 agências rodam na mesma máquina, com o mesmo relógio de hardware; em máquinas distintas a ordem física poderia até inverter sem nada estar errado. Por isso `horaParede` é gravado mas **nenhuma decisão do sistema o consulta**.
 
 ---

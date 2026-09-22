@@ -162,4 +162,27 @@ class RelogioLamportTest {
                 "carimbos repetidos: aoReceber nao e thread-safe");
     }
 
+
+    @Test
+    @DisplayName("relogio restaurado continua de onde o log parou")
+    void relogioRestauradoContinuaDeOndeOLogParou() {
+        // O .jsonl e aberto em APPEND e sobrevive ao restart; o contador, nao.
+        // Sem restaurar, os carimbos recomecam em 1 e a linha do tempo da Parte E
+        // ganha empates que nao sao concorrencia nenhuma.
+        RelogioLamport restaurado = new RelogioLamport(11);
+
+        assertEquals(new CarimboLamport(12), restaurado.eventoLocal());
+    }
+
+    @Test
+    @DisplayName("ler o valor atual nao avanca o relogio")
+    void valorAtualNaoAvancaORelogio() {
+        relogio.eventoLocal();
+        relogio.eventoLocal();
+
+        assertEquals(2, relogio.valorAtual());
+        assertEquals(2, relogio.valorAtual());
+        assertEquals(new CarimboLamport(3), relogio.eventoLocal());
+    }
+
 }

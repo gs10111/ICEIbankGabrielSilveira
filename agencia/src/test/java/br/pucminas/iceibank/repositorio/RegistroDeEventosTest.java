@@ -68,4 +68,25 @@ class RegistroDeEventosTest {
                 List.of("http://localhost:4016", "http://localhost:4017", "http://localhost:4018"),
                 pasta.toString());
     }
+
+    @Test
+    @DisplayName("maiorCarimbo devolve o maior timestamp ja gravado, nao o ultimo")
+    void maiorCarimboDoArquivo() {
+        RegistroDeEventos registro = new RegistroDeEventos(configuracao(0, pastaTemporaria));
+
+        registro.registrar("CRIAR_CONTA", new CarimboLamport(1), Map.of("id", 0));
+        registro.registrar("DEPOSITO", new CarimboLamport(5), Map.of("id", 0));
+        registro.registrar("SAQUE", new CarimboLamport(3), Map.of("id", 0));
+
+        assertThat(registro.maiorCarimbo()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("sem arquivo de eventos, maiorCarimbo e zero")
+    void maiorCarimboSemArquivo() {
+        RegistroDeEventos registro = new RegistroDeEventos(configuracao(1, pastaTemporaria));
+
+        assertThat(registro.maiorCarimbo()).isZero();
+    }
+
 }

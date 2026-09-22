@@ -142,24 +142,24 @@ O **mesmo jar** roda como as três agências sem recompilar. No Sprint 4, o
 ## Testes
 
 ```bash
-cd agencia && mvn test        # 89 testes
+cd agencia && mvn test        # 95 testes
 ```
 
 | Suíte | Testes | O que cobre |
 |---|---|---|
-| `RelogioLamportTest` | 8 | as 3 regras + concorrência (100 threads em `eventoLocal` e em `aoReceber`) |
+| `RelogioLamportTest` | 10 | as 3 regras + concorrência (100 threads) + restauração no boot + leitura sem efeito |
 | `ParticionadorTest` | 5 | `id % 3`, fronteiras, entradas inválidas |
-| `ContaTest` | 6 | invariantes de saldo, `BigDecimal` |
+| `ContaTest` | 8 | invariantes de saldo, `BigDecimal`, concorrência (100 threads em depósito e saque) |
 | `ContaServiceTest` | 16 | casos de uso + Lamport aplicado + histórico |
 | `TransferenciaServiceTest` | 18 | local, entre agências, **falha conhecida**, idempotência |
 | `ExtratoConsolidadoServiceTest` | 5 | soma local + remota, agência fora do ar, `consistente: false` |
 | `ContaRepositorioTest` | 4 | persistência em memória |
-| `RegistroDeEventosTest` | 3 | formato `.jsonl` |
+| `RegistroDeEventosTest` | 5 | formato `.jsonl` + maior carimbo do arquivo |
 | `JwtServiceTest` | 3 | algoritmo HS256 fixo, claims, token de outro emissor |
 | `ContaControllerTest` | 9 | rotas, códigos HTTP, validação |
 | `AutenticacaoTest` | 12 | os 3 cenários da Parte F + login + chamada interna + bypass do token de serviço |
 
-**68 dos 89** rodam **sem subir o Spring** (modelo, serviços e repositórios) e
+**74 dos 95** rodam **sem subir o Spring** (modelo, serviços e repositórios) e
 terminam em menos de um segundo. Só `ContaControllerTest` e `AutenticacaoTest`
 levantam o contexto.
 

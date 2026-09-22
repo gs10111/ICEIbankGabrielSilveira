@@ -4,6 +4,7 @@ import br.pucminas.iceibank.servico.ContaService;
 import br.pucminas.iceibank.repositorio.RegistroDeEventos;
 import br.pucminas.iceibank.config.AgenciaProperties;
 import br.pucminas.iceibank.controle.dto.EventoResposta;
+import br.pucminas.iceibank.modelo.relogio.RelogioLamport;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,24 +24,27 @@ public class StatusController {
     private final ContaService contaService;
     private final RegistroDeEventos consultaEventos;
     private final AgenciaProperties propriedades;
+    private final RelogioLamport relogio;
 
     public StatusController(ContaService contaService,
                             RegistroDeEventos consultaEventos,
-                            AgenciaProperties propriedades) {
+                            AgenciaProperties propriedades,
+                            RelogioLamport relogio) {
         this.contaService = contaService;
         this.consultaEventos = consultaEventos;
         this.propriedades = propriedades;
+        this.relogio = relogio;
     }
 
     public record Status(int agencia, String nome, int totalDeAgencias, int contas, int eventos, int relogioLamport) { }
 
     @GetMapping("/status")
     public Status status() {
-        List<EventoResposta> ultimos = consultaEventos.ultimos(1).stream().map(EventoResposta::de).toList();
-        int relogio = ultimos.isEmpty() ? 0 : ultimos.get(0).timestampLamport();
-
+        // Pergunta ao proprio relogio. Antes deduzia do ultimo evento do arquivo, o
+        // que so funcionava enquanto o ultimo carimbo fosse o maior — e depois de um
+        // restart ele nao e.
         return new Status(propriedades.id(), propriedades.nome(), propriedades.total(),
-                contaService.quantidadeDeContas(), consultaEventos.quantidade(), relogio);
+                contaService.quantidadeDeContas(), consultaEventos.quantidade(), relogio.valorAtual());
     }
 
     @GetMapping("/eventos")

@@ -81,6 +81,22 @@ public class RegistroDeEventos {
         return lerTodasAsLinhas().size();
     }
 
+    /**
+     * O maior carimbo ja gravado neste arquivo, ou 0 se nao ha arquivo.
+     *
+     * O MAIOR, nao o ultimo: se a agencia ja reiniciou sem restaurar o relogio, o
+     * arquivo tem carimbos fora de ordem (…, 11, 1, 2) e o ultimo mentiria.
+     */
+    public synchronized int maiorCarimbo() {
+        int maior = 0;
+        for (Map<String, Object> linha : lerTodasAsLinhas()) {
+            if (linha.get("timestampLamport") instanceof Number numero) {
+                maior = Math.max(maior, numero.intValue());
+            }
+        }
+        return maior;
+    }
+
     public Path caminhoArquivo() {
         return caminhoArquivo;
     }
