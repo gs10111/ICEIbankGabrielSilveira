@@ -18,7 +18,7 @@ import java.util.Optional;
  * chamada de saida pela rede.
  *
  * Autentica com X-Agencia-Token, nao com o JWT de quem esta logado: um JWT
- * identifica uma PESSOA, e quem chama /creditar-remoto e um PROCESSO. Repassar o
+ * identifica uma PESSOA, e quem chama /interno e um PROCESSO. Repassar o
  * token do usuario daria a esta agencia o poder de agir como ele em qualquer
  * outra — o problema do "confused deputy".
  */
@@ -36,27 +36,6 @@ public class AgenciaRemota {
         this.propriedades = propriedades;
         this.http = http;
         this.tokenEntreAgencias = seguranca.tokenEntreAgencias();
-    }
-
-    /** Credita numa conta de outra agencia, levando o VETOR inteiro na mensagem (regra 2). */
-    public void creditar(int idAgenciaDestino, int idConta, BigDecimal valor,
-                         CarimboVetorial carimbo, int agenciaOrigem) {
-        String url = propriedades.urlDa(idAgenciaDestino) + "/contas/" + idConta + "/creditar-remoto";
-        try {
-            http.post()
-                    .uri(url)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .header("X-Agencia-Token", tokenEntreAgencias)
-                    .body(Map.of(
-                            "valor", valor,
-                            "timestampVetorial", carimbo.valores(),
-                            "origemAgencia", agenciaOrigem))
-                    .retrieve()
-                    .toBodilessEntity();
-        } catch (RestClientException e) {
-            throw new AgenciaRemotaIndisponivelException(
-                    "falha ao contatar agencia " + idAgenciaDestino + " em " + url + ": " + e.getMessage(), e);
-        }
     }
 
     /** Vazio se a conta nao existe la; excecao se a agencia nao respondeu. */

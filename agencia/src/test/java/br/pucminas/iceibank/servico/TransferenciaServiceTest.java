@@ -1,6 +1,8 @@
 package br.pucminas.iceibank.servico;
 
 import br.pucminas.iceibank.config.AgenciaProperties;
+import br.pucminas.iceibank.config.MensageriaProperties;
+import br.pucminas.iceibank.mensageria.CreditoRemoto;
 import br.pucminas.iceibank.seguranca.SegurancaProperties;
 import br.pucminas.iceibank.repositorio.RegistroDeEventos;
 import br.pucminas.iceibank.modelo.conta.Conta;
@@ -22,10 +24,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,16 +44,16 @@ class TransferenciaServiceTest {
 
     private ContaRepositorio repositorio;
     private RegistroEmLista registro;
-    private AgenciaRemotaFalsa agenciaRemota;
+    private PublicadorFalso publicador;
     private TransferenciaService servico;
 
     @BeforeEach
     void montar() {
         repositorio = new ContaRepositorio();
         registro = new RegistroEmLista();
-        agenciaRemota = new AgenciaRemotaFalsa();
+        publicador = new PublicadorFalso();
         servico = new TransferenciaService(PROPRIEDADES, new Particionador(3), repositorio,
-                new RelogioVetorial(0, 3), registro, agenciaRemota, new RegistroDeIdempotencia());
+                new RelogioVetorial(0, 3), registro, publicador, new RegistroDeIdempotencia());
 
         repositorio.inserir(new Conta(0, "Ana", new BigDecimal("100.00")));   // 0 % 3 == 0
         repositorio.inserir(new Conta(3, "Caio", new BigDecimal("20.00")));   // 3 % 3 == 0
@@ -87,7 +86,7 @@ class TransferenciaServiceTest {
                     .containsExactly("TRANSFERENCIA_DEBITO", "TRANSFERENCIA_CREDITO");
             assertThat(registro.eventos).extracting(Evento::carimbo)
                     .containsExactly(vetor(1, 0, 0), vetor(2, 0, 0));
-            assertThat(agenciaRemota.chamadas).isZero();
+            assertThat(publicador.publicadas).as("transferencia local nao publica mensagem").isEmpty();
         }
 
         @Test
@@ -105,30 +104,49 @@ class TransferenciaServiceTest {
     class EntreAgencias {
 
         @Test
-        @DisplayName("debita local e credita remoto usando aoEnviar (regra 2)")
-        void debitaLocalECreditaRemoto() {
+        @DisplayName("debita local e PUBLICA o credito com o vetor inteiro (regra 2)")
+        void debitaLocalEPublicaOCredito() {
             Recibo recibo = servico.executar(ordem(0, 1, "30.00"));   // conta 1 -> agencia 1
 
             assertThat(recibo.local()).isFalse();
             assertThat(repositorio.buscar(0).orElseThrow().saldo()).isEqualByComparingTo("70.00");
-            assertThat(agenciaRemota.chamadas).isEqualTo(1);
-            assertThat(agenciaRemota.ultimaAgenciaDestino).isEqualTo(1);
+            assertThat(publicador.publicadas).hasSize(1);
+            assertThat(publicador.agenciaDestinoDaUltima()).isEqualTo(1);
+
+            CreditoRemoto publicada = publicador.publicadas.get(0);
+            assertThat(publicada.idConta()).isEqualTo(1);
+            assertThat(publicada.origemAgencia()).isZero();
             // debito = [1,0,0] (eventoLocal); envio = [2,0,0] (aoEnviar). O vetor INTEIRO
             // vai na mensagem, nao so a posicao desta agencia — e isso que permite ao
             // destino aprender o que a origem ja sabia das demais.
-            assertThat(agenciaRemota.ultimoCarimbo).isEqualTo(vetor(2, 0, 0));
+            assertThat(publicada.vetorEnvio()).containsExactly(2, 0, 0);
         }
 
         @Test
-        @DisplayName("LIMITACAO CONHECIDA: destino fora do ar deixa o debito aplicado, sem reversao")
-        void falhaRemotaNaoReverteODebito() {
-            agenciaRemota.forcarIndisponibilidade();
+        @DisplayName("nao consulta a agencia de destino: publica e segue (o 502 do Sprint 1 morreu)")
+        void naoConsultaODestinoAntesDePublicar() {
+            // A conta 99 nao existe em agencia nenhuma, e a agencia 0 nao tem como saber
+            // disso — quem descobre e o consumidor do outro lado. No Sprint 1 isto dava
+            // 404 ou 502; agora da recibo, porque a mensagem foi publicada.
+            Recibo recibo = servico.executar(ordem(0, 100, "30.00"));   // 100 % 3 == 1
 
-            assertThrows(AgenciaRemotaIndisponivelException.class, () -> servico.executar(ordem(0, 1, "30.00")));
+            assertThat(recibo.local()).isFalse();
+            assertThat(publicador.publicadas).hasSize(1);
+            assertThat(registro.eventos).extracting(Evento::tipo)
+                    .containsExactly("TRANSFERENCIA_DEBITO");
+        }
 
-            // O dinheiro "sumiu": saiu da origem e nunca chegou ao destino.
+        @Test
+        @DisplayName("O QUE SOBROU DA FALHA: broker fora do ar deixa o debito aplicado")
+        void brokerForaDoArDeixaODebitoAplicado() {
+            // A inconsistencia do Sprint 1 nao desapareceu — mudou de lugar e encolheu.
+            // Destino fora do ar deixou de ser problema (a fila segura a mensagem); o
+            // BROKER fora do ar ainda e, porque o debito local ja aconteceu.
+            publicador.derrubarOBroker();
+
+            assertThrows(BrokerIndisponivelException.class, () -> servico.executar(ordem(0, 1, "30.00")));
+
             assertThat(repositorio.buscar(0).orElseThrow().saldo()).isEqualByComparingTo("70.00");
-
             assertThat(registro.eventos).extracting(Evento::tipo)
                     .containsExactly("TRANSFERENCIA_DEBITO", "TRANSFERENCIA_FALHOU");
         }
@@ -136,7 +154,7 @@ class TransferenciaServiceTest {
 
     @Nested
     @DisplayName("credito remoto (regra 3 de Lamport)")
-    class CreditoRemoto {
+    class RecebimentoDeCredito {
 
         @Test
         @DisplayName("ajusta o vetor para max posicao a posicao, +1 na propria, e credita")
@@ -238,10 +256,10 @@ class TransferenciaServiceTest {
         void falhaNaoEhMemorizada() {
             OrdemDeTransferencia paraOutraAgencia =
                     new OrdemDeTransferencia("chave-9", 0, 1, new BigDecimal("30.00"));
-            agenciaRemota.forcarIndisponibilidade();
-            assertThrows(AgenciaRemotaIndisponivelException.class, () -> servico.executar(paraOutraAgencia));
+            publicador.derrubarOBroker();
+            assertThrows(BrokerIndisponivelException.class, () -> servico.executar(paraOutraAgencia));
 
-            agenciaRemota.voltarAoAr();
+            publicador.levantarOBroker();
             assertThat(servico.executar(paraOutraAgencia).reenvio()).isFalse();
         }
     }
@@ -249,31 +267,6 @@ class TransferenciaServiceTest {
     @Nested
     @DisplayName("destino remoto e particao")
     class DestinoRemoto {
-
-        @Test
-        @DisplayName("destino que nao existe na outra agencia NAO debita a origem")
-        void destinoRemotoInexistenteNaoDebita() {
-            agenciaRemota.contasQueExistemLa.remove(1);
-
-            assertThrows(ContaNaoEncontradaException.class, () -> servico.executar(ordem(0, 1, "30.00")));
-
-            assertThat(repositorio.buscar(0).orElseThrow().saldo()).isEqualByComparingTo("100.00");
-            assertThat(agenciaRemota.chamadas).isZero();
-        }
-
-        @Test
-        @DisplayName("agencia fora do ar AINDA produz a falha conhecida da Parte D")
-        void agenciaForaDoArAindaDebitaSemReverter() {
-            // Guarda-costas da pre-checagem acima: ela NAO pode transformar a falha
-            // exigida pelo roteiro num erro limpo antes do debito.
-            agenciaRemota.forcarIndisponibilidade();
-
-            assertThrows(AgenciaRemotaIndisponivelException.class, () -> servico.executar(ordem(0, 1, "30.00")));
-
-            assertThat(repositorio.buscar(0).orElseThrow().saldo()).isEqualByComparingTo("70.00");
-            assertThat(registro.eventos).extracting(Evento::tipo)
-                    .containsExactly("TRANSFERENCIA_DEBITO", "TRANSFERENCIA_FALHOU");
-        }
 
         @Test
         @DisplayName("creditar-remoto recusa conta que nao e desta agencia (400, nao 404)")
@@ -286,44 +279,42 @@ class TransferenciaServiceTest {
 
     // ------------------------------------------------------------------ fakes
 
-    private static class AgenciaRemotaFalsa extends AgenciaRemota {
-        final Set<Integer> contasQueExistemLa = new HashSet<>(Set.of(1, 2));
-        int chamadas;
-        int ultimaAgenciaDestino;
-        CarimboVetorial ultimoCarimbo;
-        private boolean noAr = true;
+    /**
+     * Publicador falso: guarda o que foi publicado em vez de falar com o broker.
+     *
+     * Repare no que ele NAO tem: nenhuma nocao de "agencia de destino no ar". Isso e o
+     * ponto do sprint — quem publica nao sabe nem precisa saber quem vai consumir.
+     */
+    private static class PublicadorFalso extends Publicador {
+        final List<CreditoRemoto> publicadas = new ArrayList<>();
+        private boolean brokerNoAr = true;
 
-        AgenciaRemotaFalsa() {
-            super(PROPRIEDADES, null, SEGURANCA);
+        PublicadorFalso() {
+            super(null, new MensageriaProperties("amqp://broker-de-teste", "iceibank.eventos-de-teste"));
         }
 
-        void forcarIndisponibilidade() {
-            noAr = false;
+        void derrubarOBroker() {
+            brokerNoAr = false;
         }
 
-        void voltarAoAr() {
-            noAr = true;
+        void levantarOBroker() {
+            brokerNoAr = true;
         }
+
+        int agenciaDestinoDaUltima() {
+            return ultimaAgenciaDestino;
+        }
+
+        private int ultimaAgenciaDestino = -1;
 
         @Override
-        public Optional<ContaRemota> consultar(int idAgencia, int idConta) {
-            if (!noAr) {
-                throw new AgenciaRemotaIndisponivelException("agencia " + idAgencia + " fora do ar", null);
+        public void publicarCredito(int agenciaDestino, int idConta, BigDecimal valor,
+                                    CarimboVetorial vetorEnvio, int agenciaOrigem) {
+            if (!brokerNoAr) {
+                throw new BrokerIndisponivelException("broker fora do ar", null);
             }
-            return contasQueExistemLa.contains(idConta)
-                    ? Optional.of(new ContaRemota(idConta, "Titular " + idConta, new BigDecimal("500.00"), idAgencia))
-                    : Optional.empty();
-        }
-
-        @Override
-        public void creditar(int idAgenciaDestino, int idConta, BigDecimal valor,
-                             CarimboVetorial carimbo, int agenciaOrigem) {
-            if (!noAr) {
-                throw new AgenciaRemotaIndisponivelException("agencia " + idAgenciaDestino + " fora do ar", null);
-            }
-            chamadas++;
-            ultimaAgenciaDestino = idAgenciaDestino;
-            ultimoCarimbo = carimbo;
+            ultimaAgenciaDestino = agenciaDestino;
+            publicadas.add(new CreditoRemoto(idConta, valor, vetorEnvio.valores(), agenciaOrigem));
         }
     }
 

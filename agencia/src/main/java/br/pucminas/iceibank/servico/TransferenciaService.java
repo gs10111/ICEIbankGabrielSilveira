@@ -24,9 +24,15 @@ import java.util.Map;
  *  - credito local  -> eventoLocal()  (regra 1) — nao ha mensagem, nao ha o que sincronizar
  *  - credito remoto -> aoEnviar()     (regra 2) na origem, e aoReceber() (regra 3) no destino
  *
- * LIMITACAO CONHECIDA (Parte D do roteiro): se a agencia de destino cair depois do
- * debito, o dinheiro "some". Nao revertemos de proposito — e o problema que o
- * Sprint 4 resolve com 2PC ou Saga. Aqui so registramos TRANSFERENCIA_FALHOU.
+ * SPRINT 2: a transferencia entre agencias deixou de ser uma chamada REST sincrona e
+ * virou uma MENSAGEM publicada numa exchange. A agencia de destino pode estar fora do
+ * ar no momento do envio — a mensagem fica retida na fila (durable + persistente) ate
+ * ela voltar. O 502 do Sprint 1 desapareceu deste caminho.
+ *
+ * O QUE AINDA NAO ESTA RESOLVIDO: as contas vivem em memoria. Se a agencia de destino
+ * REINICIAR antes de consumir, a mensagem chega mas a conta nao existe mais — o
+ * consumidor registra CREDITO_REMOTO_FALHOU e o dinheiro some do mesmo jeito. "A
+ * mensagem nao se perde" nao e o mesmo que "o sistema esta correto".
  */
 @Service
 public class TransferenciaService {
@@ -36,7 +42,7 @@ public class TransferenciaService {
     private final ContaRepositorio repositorio;
     private final RelogioVetorial relogio;
     private final RegistroDeEventos eventos;
-    private final AgenciaRemota agenciaRemota;
+    private final Publicador publicador;
     private final RegistroDeIdempotencia idempotencia;
 
     public TransferenciaService(AgenciaProperties propriedades,
@@ -44,14 +50,14 @@ public class TransferenciaService {
                                 ContaRepositorio repositorio,
                                 RelogioVetorial relogio,
                                 RegistroDeEventos eventos,
-                                AgenciaRemota agenciaRemota,
+                                Publicador publicador,
                                 RegistroDeIdempotencia idempotencia) {
         this.idAgencia = propriedades.id();
         this.particionador = particionador;
         this.repositorio = repositorio;
         this.relogio = relogio;
         this.eventos = eventos;
-        this.agenciaRemota = agenciaRemota;
+        this.publicador = publicador;
         this.idempotencia = idempotencia;
     }
 
@@ -107,8 +113,11 @@ public class TransferenciaService {
     // ---------------------------------------------------------- entre agencias
 
     private Recibo transferirEntreAgencias(OrdemDeTransferencia ordem, Conta origem, int agenciaDestino) {
-        exigirQueODestinoExista(ordem, agenciaDestino);
-
+        // Sem pre-checagem do destino, ao contrario do Sprint 1: com mensageria a
+        // agencia de destino pode estar fora do ar AGORA e voltar depois. Perguntar
+        // a ela antes de publicar traria de volta exatamente o acoplamento sincrono
+        // que este sprint remove. Quem descobre que a conta nao existe e o CONSUMIDOR,
+        // e ele registra CREDITO_REMOTO_FALHOU.
         CarimboVetorial carimboDebito = relogio.eventoLocal();
         origem.sacar(ordem.valor());                  // Conta valida saldo e valor
         eventos.registrar("TRANSFERENCIA_DEBITO", carimboDebito, detalhes(ordem));
@@ -117,9 +126,10 @@ public class TransferenciaService {
         CarimboVetorial carimboEnvio = relogio.aoEnviar();
 
         try {
-            agenciaRemota.creditar(agenciaDestino, ordem.idDestino(), ordem.valor(), carimboEnvio, idAgencia);
-        } catch (AgenciaRemotaIndisponivelException e) {
-            // LIMITACAO CONHECIDA: o debito acima NAO e revertido. Sprint 4 (2PC/Saga).
+            publicador.publicarCredito(agenciaDestino, ordem.idDestino(), ordem.valor(), carimboEnvio, idAgencia);
+        } catch (BrokerIndisponivelException e) {
+            // O que sobrou da falha do Sprint 1, e agora so acontece se o BROKER cair:
+            // o debito ja foi aplicado e o credito nao chegou nem a ser publicado.
             eventos.registrar("TRANSFERENCIA_FALHOU", relogio.eventoLocal(),
                     Map.of("idOrigem", ordem.idOrigem(), "idDestino", ordem.idDestino(),
                             "valor", ordem.valor(), "erro", String.valueOf(e.getMessage()),
@@ -127,29 +137,10 @@ public class TransferenciaService {
             throw e;
         }
 
-        return new Recibo("Transferencia concluida (entre agencias).", false,
+        // 200, e nao 502: a mensagem foi publicada. Isso NAO significa que o dinheiro
+        // chegou — significa que ele nao vai mais se perder no caminho.
+        return new Recibo("Transferencia publicada para a agencia " + agenciaDestino + ".", false,
                 ordem.idOrigem(), ordem.idDestino(), ordem.valor(), origem.saldo(), false);
-    }
-
-    /**
-     * Sem esta checagem, transferir para uma conta que nao existe na outra agencia
-     * queima o dinheiro do mesmo jeito que a falha da Parte D — mas por um motivo
-     * que da para evitar, e devolvendo 502 ("agencia indisponivel") em vez de 404.
-     *
-     * A indisponibilidade e engolida DE PROPOSITO: se a agencia nao responde aqui,
-     * seguimos em frente para que a falha conhecida aconteca no credito, que e onde
-     * o roteiro manda registra-la. Trocar isso por um erro limpo antes do debito
-     * apagaria a Parte D — o teste agenciaForaDoArAindaDebitaSemReverter trava isso.
-     */
-    private void exigirQueODestinoExista(OrdemDeTransferencia ordem, int agenciaDestino) {
-        try {
-            if (agenciaRemota.consultar(agenciaDestino, ordem.idDestino()).isEmpty()) {
-                throw new ContaNaoEncontradaException("conta de destino nao existe na agencia "
-                        + agenciaDestino + ": " + ordem.idDestino());
-            }
-        } catch (AgenciaRemotaIndisponivelException indisponivel) {
-            // segue: a falha conhecida da Parte D e registrada no credito
-        }
     }
 
     // ------------------------------------------------------------ credito remoto

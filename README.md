@@ -1,8 +1,8 @@
-# ICEIBank — Sprint 1
+# ICEIBank — Sprints 1 e 2
 
 Banco particionado em **três agências independentes**, cada uma responsável por uma
 partição de contas (`agência = id_conta % 3`). Toda operação é carimbada com um
-**relógio lógico de Lamport**.
+**relógio vetorial** (no Sprint 1 era um relógio de Lamport).
 
 > **Há uma falha intencional nesta entrega.** Uma transferência entre agências que
 > encontra a agência de destino fora do ar **não reverte o débito**. Isso é exigido
@@ -23,6 +23,7 @@ Aluno: **gabriel silveira** · RA 1466316 (OFFSET **16** → portas 4016/4017/40
 | Frontend | React 18 + Vite |
 | Autenticação | JWT (jjwt) com filtro escrito à mão + BCrypt |
 | Persistência | em memória (Sprint 1 não exige banco) |
+| Mensageria | RabbitMQ (CloudAMQP) via Spring AMQP — exchange *topic*, uma fila por agência |
 | Log de eventos | arquivo `.jsonl`, uma linha JSON por evento |
 
 ## Arquitetura — MVC
@@ -51,6 +52,15 @@ O mesmo vocabulário vale no frontend: `modelo/` · `visao/` · `controle/`.
 ## Como executar
 
 ### 1. Backend — as 3 agências
+
+A partir do Sprint 2 as agências precisam de um **broker RabbitMQ**. A URL é segredo:
+crie um arquivo `.env.local` na raiz (já está no `.gitignore`) com
+
+```
+RABBITMQ_URL=amqps://usuario:senha@host.cloudamqp.com/vhost
+```
+
+ou exporte `RABBITMQ_URL` no terminal. O `subir-agencias.sh` lê o arquivo sozinho.
 
 ```bash
 cd agencia
@@ -116,8 +126,8 @@ java -jar target/iceibank-agencia-1.0.0.jar --mesclar-logs data
 | GET | `/contas/{id}` | JWT | consulta saldo |
 | POST | `/contas/{id}/depositar` | JWT | depósito |
 | POST | `/contas/{id}/sacar` | JWT | saque |
-| POST | `/transferencias` | JWT | transferência local ou entre agências |
-| POST | `/contas/{id}/creditar-remoto` | `X-Agencia-Token` | **interna**, agência-a-agência |
+| POST | `/transferencias` | JWT | local (síncrona) ou entre agências (**publica mensagem**) |
+| GET | `/contas/{id}/interno` | `X-Agencia-Token` | **interna**, leitura que o extrato consolidado faz |
 | GET | `/contas/{id}/historico` | JWT | **extra 1** — eventos da conta |
 | GET | `/eventos` | JWT | eventos da agência (alimenta a linha do tempo) |
 | GET | `/extrato-consolidado` | JWT | **extra 3** — soma saldos entre agências |
@@ -138,7 +148,9 @@ Tudo tem default de desenvolvimento no `application.yml` e é sobrescrito por am
 | `AGENCIA_TOTAL` | `3` | número de agências (divisor da partição) |
 | `JWT_SEGREDO` | *(dev)* | chave HMAC — **trocar em produção** |
 | `JWT_VALIDADE` | `900` | validade do token, em segundos |
-| `AGENCIA_TOKEN` | *(dev)* | segredo das chamadas entre agências |
+| `AGENCIA_TOKEN` | *(dev)* | segredo da leitura interna entre agências |
+| `RABBITMQ_URL` | *(sem default)* | **obrigatória** — URL AMQP do broker. Sem ela a agência não sobe |
+| `RABBITMQ_EXCHANGE` | `iceibank.eventos` | nome da exchange |
 
 O **mesmo jar** roda como as três agências sem recompilar. No Sprint 4, o
 `docker-compose` só precisa passar `environment:`.
@@ -148,23 +160,24 @@ O **mesmo jar** roda como as três agências sem recompilar. No Sprint 4, o
 ## Testes
 
 ```bash
-cd agencia && mvn test        # 96 testes
+cd agencia && mvn test        # 110 testes
 cd frontend && npm test       # 5 testes (runner do Node, sem dependencia nova)
 ```
 
 | Suíte | Testes | O que cobre |
 |---|---|---|
-| `RelogioLamportTest` | 10 | as 3 regras + concorrência (100 threads) + restauração no boot + leitura sem efeito |
+| `RelogioVetorialTest` | 21 | as 3 regras, comparação de vetores, concorrência (100 threads), restauração |
 | `ParticionadorTest` | 5 | `id % 3`, fronteiras, entradas inválidas |
 | `ContaTest` | 8 | invariantes de saldo, `BigDecimal`, concorrência (100 threads em depósito e saque) |
 | `ContaServiceTest` | 16 | casos de uso + Lamport aplicado + histórico |
-| `TransferenciaServiceTest` | 18 | local, entre agências, **falha conhecida**, idempotência |
+| `TransferenciaServiceTest` | 17 | local, publicação entre agências, broker fora do ar, idempotência |
+| `ConsumidorDeCreditosTest` | 4 | regra 3 no consumo, conta inexistente, partição errada |
 | `ExtratoConsolidadoServiceTest` | 5 | soma local + remota, agência fora do ar, `consistente: false` |
 | `ContaRepositorioTest` | 5 | persistência em memória + mutação visível sem `inserir` |
 | `RegistroDeEventosTest` | 5 | formato `.jsonl` + maior carimbo do arquivo |
 | `JwtServiceTest` | 3 | algoritmo HS256 fixo, claims, token de outro emissor |
 | `ContaControllerTest` | 9 | rotas, códigos HTTP, validação |
-| `AutenticacaoTest` | 12 | os 3 cenários da Parte F + login + chamada interna + bypass do token de serviço |
+| `AutenticacaoTest` | 12 | os 3 cenários da Parte F + login + rota interna + bypass do token de serviço |
 
 **75 dos 96** rodam **sem subir o Spring** (modelo, serviços e repositórios) e
 terminam em menos de um segundo. Só `ContaControllerTest` e `AutenticacaoTest`

@@ -163,28 +163,31 @@ class AutenticacaoTest {
     @DisplayName("chamada entre agencias")
     class EntreAgencias {
 
+        // SPRINT 2: /creditar-remoto deixou de existir. Creditar virou MENSAGEM, e
+        // mensagem nao passa por rota nem por filtro. A unica rota interna que sobrou e
+        // /interno, a leitura que o extrato consolidado faz nas outras agencias — e o
+        // X-Agencia-Token continua sendo exatamente o que a protege.
+
         @Test
-        @DisplayName("creditar-remoto sem o token de servico e recusado")
+        @DisplayName("rota interna sem o token de servico e recusada")
         void semTokenDeServicoRecusa() throws Exception {
-            mvc().perform(post("/contas/0/creditar-remoto").contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"valor\":10.00,\"timestampVetorial\":5,\"origemAgencia\":1}"))
+            mvc().perform(get("/contas/0/interno"))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.erro").value(org.hamcrest.Matchers.containsString("X-Agencia-Token")));
         }
 
         @Test
-        @DisplayName("creditar-remoto com o token de servico e aceito, sem JWT de usuario")
+        @DisplayName("rota interna com o token de servico e aceita, sem JWT de usuario")
         void comTokenDeServicoAceita() throws Exception {
             mvc().perform(post("/contas").header("Authorization", tokenValido())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"id\":609,\"nomeAluno\":\"Joana\",\"saldoInicial\":10.00}"));
 
-            mvc().perform(post("/contas/609/creditar-remoto")
-                            .header("X-Agencia-Token", seguranca.tokenEntreAgencias())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"valor\":15.00,\"timestampVetorial\":[0,42,0],\"origemAgencia\":1}"))
+            mvc().perform(get("/contas/609/interno")
+                            .header("X-Agencia-Token", seguranca.tokenEntreAgencias()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.saldo").value(25.00));
+                    .andExpect(jsonPath("$.saldo").value(10.00))
+                    .andExpect(jsonPath("$.nomeAluno").value("Joana"));
         }
 
         @Test

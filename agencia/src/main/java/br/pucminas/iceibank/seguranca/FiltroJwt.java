@@ -23,11 +23,11 @@ import java.util.Optional;
  *
  * REGRAS:
  *  - /auth/ (qualquer)     publico (senao ninguem consegue obter token)
- *  - /creditar-remoto e /interno  exigem o header X-Agencia-Token (e SO ele)
+ *  - /interno                     exige o header X-Agencia-Token (e SO ele)
  *  - todo o resto           exige Authorization: Bearer <jwt> valido
  *
  * DECISAO (pergunta 11.1.5 do roteiro): a chamada interna NAO carrega JWT de usuario.
- * Um JWT identifica uma PESSOA; quem chama /creditar-remoto e um PROCESSO. Repassar o
+ * Um JWT identifica uma PESSOA; quem chama /interno e um PROCESSO. Repassar o
  * token do usuario daria a uma agencia o poder de agir como ele em qualquer outra —
  * o problema classico do "confused deputy". Alem disso o token do usuario expira em
  * 15 min e a comunicacao entre agencias precisa funcionar independentemente disso.
@@ -92,12 +92,16 @@ public class FiltroJwt extends OncePerRequestFilter {
 
     /**
      * As UNICAS rotas que o segredo de servico abre:
-     *  - /creditar-remoto  a agencia de origem credita no destino (Parte D)
      *  - /interno          a leitura que o extrato consolidado faz nas outras agencias
+     *
+     * No Sprint 1 havia tambem /creditar-remoto aqui. Ele saiu no Sprint 2: creditar
+     * deixou de ser uma chamada HTTP e virou uma MENSAGEM, que nao passa pelo filtro
+     * nem por rota nenhuma. Quem autentica ali e o proprio broker (ver RESPOSTAS.md,
+     * pergunta 7.5.3).
      * Qualquer outra rota exige JWT de usuario, mesmo com o header presente.
      */
     private boolean ehRotaInterna(String caminho) {
-        return caminho.endsWith("/creditar-remoto") || caminho.endsWith("/interno");
+        return caminho.endsWith("/interno");
     }
 
     private boolean tokenDeServicoConfere(HttpServletRequest requisicao) {

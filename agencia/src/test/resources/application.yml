@@ -9,6 +9,18 @@ agencia:
     - http://localhost:4018
 server:
   port: 0
+
+# Os testes nao falam com broker nenhum. A conexao do Spring AMQP e preguicosa
+# (so conecta no primeiro uso), entao os beans sobem sem problema; o que precisa
+# ser desligado e o CONSUMIDOR, que tentaria conectar no startup.
+mensageria:
+  url: amqp://guest:guest@localhost:5672/%2f
+  exchange: iceibank.eventos-de-teste
+spring:
+  rabbitmq:
+    listener:
+      simple:
+        auto-startup: false
 seguranca:
   segredo-jwt: segredo-de-teste-com-mais-de-32-caracteres-ok
   validade-em-segundos: 900

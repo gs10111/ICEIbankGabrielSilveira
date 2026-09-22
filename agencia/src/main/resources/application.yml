@@ -13,9 +13,26 @@ agencia:
 server:
   port: ${SERVER_PORT:4016}
 
+# PARTE A — mensageria (RabbitMQ / CloudAMQP).
+# A URL e SEGREDO: vem sempre do ambiente, nunca tem default commitado.
+#   export RABBITMQ_URL="amqps://usuario:senha@host.cloudamqp.com/vhost"
+# Uma exchange topic compartilhada; cada agencia tem a propria fila, vinculada
+# pela routing key agencia.<id>.creditar.
+mensageria:
+  url: ${RABBITMQ_URL:}
+  exchange: ${RABBITMQ_EXCHANGE:iceibank.eventos}
+
+
 spring:
   application:
     name: iceibank-agencia
+  rabbitmq:
+    listener:
+      simple:
+        # Mensagem que falhou NAO volta para a fila: a conta que nao existe agora nao
+        # vai passar a existir na proxima tentativa, e reentregar em loop travaria o
+        # consumidor. O consumidor trata o caso e registra CREDITO_REMOTO_FALHOU.
+        default-requeue-rejected: false
 
 logging:
   level:
