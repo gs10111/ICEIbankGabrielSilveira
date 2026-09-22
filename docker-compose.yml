@@ -1,0 +1,103 @@
+# ICEIBank — as 3 agencias, o broker e o frontend, em um comando.
+#
+#   docker compose up --build
+#   http://localhost:5173        conta 0, senha ana123
+#
+# Por padrao sobe um RabbitMQ local, entao NAO e preciso ter conta no CloudAMQP para
+# rodar. Para usar o CloudAMQP, ponha RABBITMQ_URL no arquivo .env da raiz — o compose
+# le esse arquivo sozinho e a variavel vence o default daqui.
+#
+# As 3 agencias sao a MESMA imagem: muda so AGENCIA_ID e a porta (12-Factor III).
+
+name: iceibank
+
+services:
+  broker:
+    image: rabbitmq:3-management-alpine
+    container_name: iceibank-broker
+    hostname: iceibank-broker
+    ports:
+      - "5672:5672"      # AMQP
+      - "15672:15672"    # painel web: http://localhost:15672  (guest/guest)
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - broker-dados:/var/lib/rabbitmq
+    healthcheck:
+      # As agencias so sobem depois que o broker responde de verdade: sem isto,
+      # a primeira transferencia falharia enquanto o RabbitMQ ainda inicializa.
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  agencia-0:
+    build: ./agencia
+    image: iceibank/agencia:1.0.0
+    container_name: iceibank-agencia-0
+    ports: ["4016:4016"]
+    environment: &ambiente-da-agencia
+      AGENCIA_ID: 0
+      AGENCIA_TOTAL: 3
+      SERVER_PORT: 4016
+      # Nomes de servico, nao localhost: dentro da rede do compose cada container
+      # tem o proprio localhost. Este e o unico ajuste que containerizar exigiu.
+      AGENCIA_URLS: http://agencia-0:4016,http://agencia-1:4017,http://agencia-2:4018
+      # O %2F no fim e o vhost "/" escapado, e NAO e detalhe: terminar a URL em
+      # "/" pede o vhost de nome VAZIO, e o broker recusa a conexao com
+      # "NOT_ALLOWED - vhost  not found". O vhost padrao do RabbitMQ se chama "/".
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@broker:5672/%2F}
+      JWT_SEGREDO: ${JWT_SEGREDO:-iceibank-sprint2-segredo-de-desenvolvimento-trocar-em-producao}
+      AGENCIA_TOKEN: ${AGENCIA_TOKEN:-token-interno-das-agencias-iceibank}
+    volumes:
+      - dados-agencia-0:/app/data
+    depends_on:
+      broker:
+        condition: service_healthy
+
+  agencia-1:
+    build: ./agencia
+    image: iceibank/agencia:1.0.0
+    container_name: iceibank-agencia-1
+    ports: ["4017:4017"]
+    environment:
+      <<: *ambiente-da-agencia
+      AGENCIA_ID: 1
+      SERVER_PORT: 4017
+    volumes:
+      - dados-agencia-1:/app/data
+    depends_on:
+      broker:
+        condition: service_healthy
+
+  agencia-2:
+    build: ./agencia
+    image: iceibank/agencia:1.0.0
+    container_name: iceibank-agencia-2
+    ports: ["4018:4018"]
+    environment:
+      <<: *ambiente-da-agencia
+      AGENCIA_ID: 2
+      SERVER_PORT: 4018
+    volumes:
+      - dados-agencia-2:/app/data
+    depends_on:
+      broker:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    image: iceibank/frontend:1.0.0
+    container_name: iceibank-frontend
+    ports: ["5173:80"]
+    depends_on:
+      agencia-0:
+        condition: service_healthy
+
+volumes:
+  broker-dados:
+  dados-agencia-0:
+  dados-agencia-1:
+  dados-agencia-2:

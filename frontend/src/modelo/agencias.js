@@ -21,6 +21,16 @@
  */
 export const PORTA_BASE = 4016
 
+/**
+ * O host onde as agencias respondem.
+ *
+ * Nao e `localhost` fixo: em container (ou em qualquer maquina que nao seja a sua),
+ * o browser que abre esta pagina precisa falar com o MESMO host de onde ela veio.
+ * `window.location.hostname` resolve os dois casos sem configuracao. O fallback
+ * existe so para rodar os testes fora do browser.
+ */
+const HOST = (typeof window !== 'undefined' && window.location?.hostname) || 'localhost' 
+
 let totalDeAgencias = 3
 export let AGENCIAS = montarMalha(totalDeAgencias)
 
@@ -28,7 +38,7 @@ function montarMalha(total) {
   return Array.from({ length: total }, (_, id) => ({
     id,
     porta: PORTA_BASE + id,
-    url: `http://localhost:${PORTA_BASE + id}`,
+    url: `http://${HOST}:${PORTA_BASE + id}`,
     rotulo: `AG ${id}`,
   }))
 }
@@ -46,7 +56,7 @@ function montarMalha(total) {
  */
 export async function descobrirMalha() {
   try {
-    const resposta = await fetch(`http://localhost:${PORTA_BASE}/status`, {
+    const resposta = await fetch(`http://${HOST}:${PORTA_BASE}/status`, {
       signal: AbortSignal.timeout(3000),
     })
     if (!resposta.ok) {

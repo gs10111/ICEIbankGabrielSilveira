@@ -1,6 +1,7 @@
 package br.pucminas.iceibank.controle;
 
 import br.pucminas.iceibank.servico.AgenciaRemotaIndisponivelException;
+import br.pucminas.iceibank.servico.BrokerIndisponivelException;
 import br.pucminas.iceibank.servico.ChaveIdempotenciaConflitanteException;
 import br.pucminas.iceibank.modelo.conta.ContaJaExisteException;
 import br.pucminas.iceibank.modelo.conta.ContaNaoEncontradaException;
@@ -53,6 +54,22 @@ public class ManipuladorDeErros {
         return resposta(HttpStatus.BAD_GATEWAY,
                 "Falha ao contatar agencia de destino. DEBITO JA APLICADO e nao revertido"
                         + " — inconsistencia conhecida, ver Sprint 4 (2PC/Saga). Causa: " + e.getMessage());
+    }
+
+    /**
+     * SPRINT 2: o que sobrou da falha da Parte D.
+     *
+     * A agencia de destino fora do ar ja NAO chega aqui — a mensagem espera na fila.
+     * Isto so acontece se o BROKER estiver inalcancavel: ai o debito local ja foi
+     * aplicado e o credito nao chegou nem a ser publicado. 503 e nao 502: o problema
+     * e a nossa propria dependencia de infraestrutura, nao um parceiro remoto.
+     */
+    @ExceptionHandler(BrokerIndisponivelException.class)
+    public ResponseEntity<ErroResposta> brokerIndisponivel(BrokerIndisponivelException e) {
+        return resposta(HttpStatus.SERVICE_UNAVAILABLE,
+                "Mensageria indisponivel: a transferencia NAO foi publicada e o DEBITO JA FOI"
+                        + " APLICADO — inconsistencia conhecida, ver Sprint 4 (2PC/Saga). Causa: "
+                        + e.getMessage());
     }
 
     @ExceptionHandler(ChaveIdempotenciaConflitanteException.class)

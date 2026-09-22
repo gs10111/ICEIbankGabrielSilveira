@@ -6,7 +6,7 @@
 # OFFSET pessoal = 16 (dois ultimos digitos do RA 1466316) -> portas 4016/4017/4018.
 agencia:
   id: ${AGENCIA_ID:0}
-  total: 3
+  total: ${AGENCIA_TOTAL:3}
   pasta-dados: ${AGENCIA_PASTA_DADOS:data}
   urls: ${AGENCIA_URLS:http://localhost:4016,http://localhost:4017,http://localhost:4018}
 

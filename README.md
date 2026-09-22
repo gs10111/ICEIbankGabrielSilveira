@@ -49,7 +49,46 @@ O mesmo vocabulário vale no frontend: `modelo/` · `visao/` · `controle/`.
 
 ---
 
-## Como executar
+## Como executar — com Docker (recomendado)
+
+Um comando, nada instalado além do Docker. Sobe o RabbitMQ, as 3 agências e o frontend:
+
+```bash
+docker compose up --build
+```
+
+| Endereço | O quê |
+|---|---|
+| http://localhost:5173 | frontend — conta **0**, senha `ana123` |
+| http://localhost:4016 · 4017 · 4018 | as 3 agências |
+| http://localhost:15672 | painel do RabbitMQ (`guest` / `guest`) |
+
+```bash
+docker compose ps          # estado e healthcheck de cada serviço
+docker compose logs -f agencia-1
+docker compose down        # para tudo
+docker compose down -v     # para tudo e APAGA os dados (.jsonl e filas)
+```
+
+**Não precisa de conta no CloudAMQP:** o compose sobe o próprio broker. Para usar o
+CloudAMQP mesmo assim, copie `.env.example` para `.env` e preencha `RABBITMQ_URL` —
+o compose lê esse arquivo sozinho e nenhuma linha de código muda (12-Factor III).
+
+Três detalhes que a containerização exigiu, e só três:
+
+- **`AGENCIA_URLS` aponta para nomes de serviço**, não `localhost`: dentro da rede do
+  compose cada container tem o próprio `localhost`.
+- **`%2F` no fim da URL do broker.** Terminar em `/` pede o vhost de nome *vazio*, e o
+  RabbitMQ recusa com `NOT_ALLOWED - vhost not found`. O vhost padrão se chama `/`.
+- **`127.0.0.1` nos healthchecks**, não `localhost`: dentro do container `localhost`
+  resolve primeiro para `::1` (IPv6), e o nginx da imagem só escuta em IPv4.
+
+As 3 agências são a **mesma imagem** (`iceibank/agencia:1.0.0`); muda só `AGENCIA_ID` e
+a porta. Cada uma tem seu volume para o `.jsonl`, que o relógio vetorial relê no boot.
+
+---
+
+## Como executar — sem Docker
 
 ### 1. Backend — as 3 agências
 
