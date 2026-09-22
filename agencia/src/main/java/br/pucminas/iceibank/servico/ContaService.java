@@ -60,7 +60,7 @@ public class ContaService {
         Carimbo carimbo = relogio.eventoLocal();
 
         Conta conta = new Conta(id, nome, saldoInicial);
-        repositorio.salvar(conta);
+        repositorio.inserir(conta);
         eventos.registrar("CRIAR_CONTA", carimbo,
                 Map.of("id", id, "nomeAluno", nome, "saldoInicial", saldoInicial));
         return conta;
@@ -78,7 +78,6 @@ public class ContaService {
 
         Carimbo carimbo = relogio.eventoLocal();
         conta.depositar(valor);                  // a REGRA mora na Conta, nao aqui
-        repositorio.salvar(conta);
         eventos.registrar("DEPOSITO", carimbo,
                 Map.of("id", id, "valor", valor, "novoSaldo", conta.saldo()));
         return conta;
@@ -90,7 +89,6 @@ public class ContaService {
 
         Carimbo carimbo = relogio.eventoLocal();
         conta.sacar(valor);
-        repositorio.salvar(conta);
         eventos.registrar("SAQUE", carimbo,
                 Map.of("id", id, "valor", valor, "novoSaldo", conta.saldo()));
         return conta;

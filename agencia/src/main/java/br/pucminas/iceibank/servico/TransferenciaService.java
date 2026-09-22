@@ -94,12 +94,10 @@ public class TransferenciaService {
 
         Carimbo carimboDebito = relogio.eventoLocal();
         origem.sacar(ordem.valor());
-        repositorio.salvar(origem);
         eventos.registrar("TRANSFERENCIA_DEBITO", carimboDebito, detalhes(ordem));
 
         Carimbo carimboCredito = relogio.eventoLocal();
         destino.depositar(ordem.valor());
-        repositorio.salvar(destino);
         eventos.registrar("TRANSFERENCIA_CREDITO", carimboCredito, detalhes(ordem));
 
         return new Recibo("Transferencia concluida (mesma agencia).", true,
@@ -113,7 +111,6 @@ public class TransferenciaService {
 
         Carimbo carimboDebito = relogio.eventoLocal();
         origem.sacar(ordem.valor());                  // Conta valida saldo e valor
-        repositorio.salvar(origem);
         eventos.registrar("TRANSFERENCIA_DEBITO", carimboDebito, detalhes(ordem));
 
         // Regra 2 de Lamport: ao ENVIAR mensagem, incrementa e anexa o carimbo.
@@ -179,7 +176,6 @@ public class TransferenciaService {
                         "conta nao encontrada nesta agencia: " + idConta));
 
         conta.depositar(valor);
-        repositorio.salvar(conta);
         eventos.registrar("TRANSFERENCIA_CREDITO_REMOTO", carimbo,
                 Map.of("idConta", idConta, "valor", valor,
                         "agenciaOrigem", agenciaOrigem, "novoSaldo", conta.saldo()));

@@ -57,8 +57,8 @@ class TransferenciaServiceTest {
         servico = new TransferenciaService(PROPRIEDADES, new Particionador(3), repositorio,
                 new RelogioLamport(), registro, agenciaRemota, new RegistroDeIdempotencia());
 
-        repositorio.salvar(new Conta(0, "Ana", new BigDecimal("100.00")));   // 0 % 3 == 0
-        repositorio.salvar(new Conta(3, "Caio", new BigDecimal("20.00")));   // 3 % 3 == 0
+        repositorio.inserir(new Conta(0, "Ana", new BigDecimal("100.00")));   // 0 % 3 == 0
+        repositorio.inserir(new Conta(3, "Caio", new BigDecimal("20.00")));   // 3 % 3 == 0
     }
 
     private OrdemDeTransferencia ordem(int origem, int destino, String valor) {
@@ -212,7 +212,7 @@ class TransferenciaServiceTest {
         @Test
         @DisplayName("a chave vale por conta de origem: duas contas podem usar a mesma")
         void chaveDeIdempotenciaEhPorContaDeOrigem() {
-            repositorio.salvar(new Conta(6, "Elis", new BigDecimal("50.00")));   // 6 % 3 == 0
+            repositorio.inserir(new Conta(6, "Elis", new BigDecimal("50.00")));   // 6 % 3 == 0
 
             servico.executar(new OrdemDeTransferencia("op-1", 0, 3, new BigDecimal("10.00")));
             Recibo daOutraConta = servico.executar(new OrdemDeTransferencia("op-1", 6, 3, new BigDecimal("10.00")));

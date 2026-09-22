@@ -91,6 +91,12 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
+O frontend **pergunta a topologia** ao backend antes do primeiro render: lê
+`totalDeAgencias` de `GET /status` (rota pública, funciona antes do login) e monta a
+malha a partir dele. Só a porta de entrada — 4016 — é fixa, porque não dá para
+perguntar a quem perguntar. Se a agência de entrada estiver fora do ar, sobe com o
+padrão de 3 e avisa no console.
+
 ### 3. Linha do tempo unificada (Parte E)
 
 ```bash
@@ -142,7 +148,8 @@ O **mesmo jar** roda como as três agências sem recompilar. No Sprint 4, o
 ## Testes
 
 ```bash
-cd agencia && mvn test        # 95 testes
+cd agencia && mvn test        # 96 testes
+cd frontend && npm test       # 5 testes (runner do Node, sem dependencia nova)
 ```
 
 | Suíte | Testes | O que cobre |
@@ -153,15 +160,19 @@ cd agencia && mvn test        # 95 testes
 | `ContaServiceTest` | 16 | casos de uso + Lamport aplicado + histórico |
 | `TransferenciaServiceTest` | 18 | local, entre agências, **falha conhecida**, idempotência |
 | `ExtratoConsolidadoServiceTest` | 5 | soma local + remota, agência fora do ar, `consistente: false` |
-| `ContaRepositorioTest` | 4 | persistência em memória |
+| `ContaRepositorioTest` | 5 | persistência em memória + mutação visível sem `inserir` |
 | `RegistroDeEventosTest` | 5 | formato `.jsonl` + maior carimbo do arquivo |
 | `JwtServiceTest` | 3 | algoritmo HS256 fixo, claims, token de outro emissor |
 | `ContaControllerTest` | 9 | rotas, códigos HTTP, validação |
 | `AutenticacaoTest` | 12 | os 3 cenários da Parte F + login + chamada interna + bypass do token de serviço |
 
-**74 dos 95** rodam **sem subir o Spring** (modelo, serviços e repositórios) e
+**75 dos 96** rodam **sem subir o Spring** (modelo, serviços e repositórios) e
 terminam em menos de um segundo. Só `ContaControllerTest` e `AutenticacaoTest`
 levantam o contexto.
+
+No frontend, `src/modelo/agencias.test.mjs` cobre a descoberta de topologia: backend
+informando outro número de agências, agência de entrada fora do ar, resposta inválida
+e 503. É o teste que impede o `3` literal de voltar para o JavaScript.
 
 ---
 

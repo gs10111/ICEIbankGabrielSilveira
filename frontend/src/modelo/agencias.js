@@ -1,23 +1,78 @@
 /**
- * MODEL — configuracao da malha e a regra de particao.
+ * MODEL — a malha de agencias, DESCOBERTA do backend.
  *
  * O OFFSET pessoal (16, dois ultimos digitos do RA 1466316) desloca as portas:
- * 4000 + 16 = 4016. Cada agencia responde apenas pelas contas em que
- * `id % 3 === idDaAgencia`.
+ * 4000 + 16 = 4016.
+ *
+ * Quem manda no numero de agencias e o backend (AGENCIA_TOTAL / Particionador).
+ * Antes este arquivo repetia o 3 em JavaScript, entao trocar AGENCIA_TOTAL
+ * quebrava o frontend em silencio: ele continuaria roteando por `id % 3` contra
+ * um backend particionado de outro jeito. Agora o numero vem de GET /status.
+ *
+ * A REGRA (`id % N`) continua aqui de proposito: ela precisa decidir a qual
+ * agencia falar ANTES da requisicao — perguntar ao servidor a qual servidor
+ * perguntar seria uma volta a mais em toda operacao. O que era duplicado e o
+ * N, nao a formula.
  */
-export const TOTAL_DE_AGENCIAS = 3
+
+/**
+ * Ponto de partida fixo: nao da para perguntar a topologia sem saber a quem.
+ * E o unico endereco que o frontend precisa saber de cor.
+ */
 export const PORTA_BASE = 4016
 
-export const AGENCIAS = [0, 1, 2].map((id) => ({
-  id,
-  porta: PORTA_BASE + id,
-  url: `http://localhost:${PORTA_BASE + id}`,
-  rotulo: `AG ${id}`,
-}))
+let totalDeAgencias = 3
+export let AGENCIAS = montarMalha(totalDeAgencias)
 
-/** A MESMA regra do Particionador.java do backend. Aqui ela evita uma ida ao servidor. */
+function montarMalha(total) {
+  return Array.from({ length: total }, (_, id) => ({
+    id,
+    porta: PORTA_BASE + id,
+    url: `http://localhost:${PORTA_BASE + id}`,
+    rotulo: `AG ${id}`,
+  }))
+}
+
+/**
+ * Le `totalDeAgencias` do /status da agencia de entrada e remonta a malha.
+ *
+ * Chamado UMA vez, antes do primeiro render (ver main.jsx): assim `AGENCIAS`
+ * segue sendo leitura sincrona nas telas — o live binding do ES module propaga
+ * a reatribuicao para quem importou.
+ *
+ * /status e publico, entao isto funciona antes do login. Se a agencia de entrada
+ * estiver fora do ar, mantem o padrao e devolve o motivo: a aplicacao sobe do
+ * mesmo jeito e a "malha de agencias" do Painel mostra quem nao respondeu.
+ */
+export async function descobrirMalha() {
+  try {
+    const resposta = await fetch(`http://localhost:${PORTA_BASE}/status`, {
+      signal: AbortSignal.timeout(3000),
+    })
+    if (!resposta.ok) {
+      return { descoberta: false, total: totalDeAgencias, motivo: `HTTP ${resposta.status}` }
+    }
+    const status = await resposta.json()
+    const total = Number(status.totalDeAgencias)
+    if (!Number.isInteger(total) || total < 1) {
+      return { descoberta: false, total: totalDeAgencias, motivo: `totalDeAgencias invalido: ${status.totalDeAgencias}` }
+    }
+    totalDeAgencias = total
+    AGENCIAS = montarMalha(total)
+    return { descoberta: true, total }
+  } catch (erro) {
+    return { descoberta: false, total: totalDeAgencias, motivo: String(erro?.message ?? erro) }
+  }
+}
+
+/** Quantas agencias o backend informou. */
+export function totalDaMalha() {
+  return totalDeAgencias
+}
+
+/** A MESMA regra do Particionador.java — agora com o N que o backend informou. */
 export function agenciaResponsavel(idConta) {
-  return ((idConta % TOTAL_DE_AGENCIAS) + TOTAL_DE_AGENCIAS) % TOTAL_DE_AGENCIAS
+  return ((idConta % totalDeAgencias) + totalDeAgencias) % totalDeAgencias
 }
 
 export function urlDaAgencia(idAgencia) {

@@ -46,8 +46,8 @@ class ExtratoConsolidadoServiceTest {
         agenciaRemota = new AgenciaRemotaFalsa();
         servico = new ExtratoConsolidadoService(PROPRIEDADES, new Particionador(3), repositorio, agenciaRemota);
 
-        repositorio.salvar(new Conta(0, "Ana Souza", new BigDecimal("1000.00")));  // 0 % 3 == 0, local
-        repositorio.salvar(new Conta(3, "Diego Melo", new BigDecimal("300.00")));  // 3 % 3 == 0, local
+        repositorio.inserir(new Conta(0, "Ana Souza", new BigDecimal("1000.00")));  // 0 % 3 == 0, local
+        repositorio.inserir(new Conta(3, "Diego Melo", new BigDecimal("300.00")));  // 3 % 3 == 0, local
     }
 
     @Test
@@ -99,7 +99,7 @@ class ExtratoConsolidadoServiceTest {
     @Test
     @DisplayName("idsDoTitularLocal acha as contas do mesmo nome nesta agencia")
     void achaContasDoMesmoTitularLocalmente() {
-        repositorio.salvar(new Conta(6, "Ana Souza", new BigDecimal("70.00")));   // 6 % 3 == 0
+        repositorio.inserir(new Conta(6, "Ana Souza", new BigDecimal("70.00")));   // 6 % 3 == 0
 
         assertThat(servico.idsDoTitularLocal("ana souza")).containsExactlyInAnyOrder(0, 6);
     }
