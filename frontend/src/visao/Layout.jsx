@@ -1,4 +1,5 @@
 import { AGENCIAS } from '../modelo/agencias.js'
+import { vetor } from '../modelo/formato.js'
 import { Segmentado, Tag } from './componentes/Base.jsx'
 
 const MENU = [
@@ -49,7 +50,7 @@ export default function Layout({ sessao, segundosRestantes, agenciaEntrada, aoTr
               opcoes={AGENCIAS.map((a) => ({ valor: a.id, rotulo: `AG ${a.id}` }))} />
           </div>
 
-          <Tag tipo="neutral">LAMPORT {relogioDaAgencia ?? '—'}</Tag>
+          <Tag tipo="neutral">VETOR {vetor(relogioDaAgencia)}</Tag>
 
           <span className="num" style={{ fontSize: 12,
             color: tokenAcabando ? 'var(--color-accent-800)' : 'var(--color-neutral-600)' }}>

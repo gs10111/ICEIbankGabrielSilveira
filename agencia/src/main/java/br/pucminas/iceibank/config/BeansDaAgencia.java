@@ -1,7 +1,7 @@
 package br.pucminas.iceibank.config;
 
 import br.pucminas.iceibank.modelo.particao.Particionador;
-import br.pucminas.iceibank.modelo.relogio.RelogioLamport;
+import br.pucminas.iceibank.modelo.relogio.RelogioVetorial;
 import br.pucminas.iceibank.repositorio.RegistroDeEventos;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,14 +27,18 @@ public class BeansDaAgencia {
     }
 
     /**
-     * Um relogio logico por processo — e o relogio DESTA agencia.
+     * Um relogio VETORIAL por processo — e o relogio DESTA agencia.
      *
-     * Restaurado do log ao subir: o .jsonl e append-only e sobrevive ao restart,
-     * entao um relogio zerado produziria carimbos menores que os ja gravados.
+     * Precisa saber duas coisas que o de Lamport nao precisava: qual posicao do vetor
+     * e a sua (AGENCIA_ID) e quantas posicoes o vetor tem (AGENCIA_TOTAL).
+     *
+     * Restaurado do log ao subir: o .jsonl e append-only e sobrevive ao restart, entao
+     * um vetor zerado produziria carimbos menores que os ja gravados — o defeito que o
+     * commit e1bb956 corrigiu no Sprint 1 e que aqui ja nasce corrigido.
      */
     @Bean
-    public RelogioLamport relogioLamport(RegistroDeEventos registroDeEventos) {
-        return new RelogioLamport(registroDeEventos.maiorCarimbo());
+    public RelogioVetorial relogioVetorial(AgenciaProperties propriedades, RegistroDeEventos registroDeEventos) {
+        return new RelogioVetorial(propriedades.id(), registroDeEventos.vetorRestaurado(propriedades.total()));
     }
 
     /**

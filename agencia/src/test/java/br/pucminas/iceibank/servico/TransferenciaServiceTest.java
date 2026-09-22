@@ -10,9 +10,8 @@ import br.pucminas.iceibank.modelo.conta.SaldoInsuficienteException;
 import br.pucminas.iceibank.modelo.conta.ValorInvalidoException;
 import br.pucminas.iceibank.modelo.evento.Evento;
 import br.pucminas.iceibank.modelo.particao.Particionador;
-import br.pucminas.iceibank.modelo.relogio.Carimbo;
-import br.pucminas.iceibank.modelo.relogio.CarimboLamport;
-import br.pucminas.iceibank.modelo.relogio.RelogioLamport;
+import br.pucminas.iceibank.modelo.relogio.CarimboVetorial;
+import br.pucminas.iceibank.modelo.relogio.RelogioVetorial;
 import br.pucminas.iceibank.repositorio.ContaRepositorio;
 import br.pucminas.iceibank.repositorio.RegistroDeIdempotencia;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,7 +54,7 @@ class TransferenciaServiceTest {
         registro = new RegistroEmLista();
         agenciaRemota = new AgenciaRemotaFalsa();
         servico = new TransferenciaService(PROPRIEDADES, new Particionador(3), repositorio,
-                new RelogioLamport(), registro, agenciaRemota, new RegistroDeIdempotencia());
+                new RelogioVetorial(0, 3), registro, agenciaRemota, new RegistroDeIdempotencia());
 
         repositorio.inserir(new Conta(0, "Ana", new BigDecimal("100.00")));   // 0 % 3 == 0
         repositorio.inserir(new Conta(3, "Caio", new BigDecimal("20.00")));   // 3 % 3 == 0
@@ -80,14 +79,14 @@ class TransferenciaServiceTest {
         }
 
         @Test
-        @DisplayName("gera DOIS eventos locais (carimbos 1 e 2), sem envio nem recebimento")
+        @DisplayName("gera DOIS eventos locais ([1,0,0] e [2,0,0]), sem envio nem recebimento")
         void geraDoisEventosLocais() {
             servico.executar(ordem(0, 3, "30.00"));
 
             assertThat(registro.eventos).extracting(Evento::tipo)
                     .containsExactly("TRANSFERENCIA_DEBITO", "TRANSFERENCIA_CREDITO");
             assertThat(registro.eventos).extracting(Evento::carimbo)
-                    .containsExactly(new CarimboLamport(1), new CarimboLamport(2));
+                    .containsExactly(vetor(1, 0, 0), vetor(2, 0, 0));
             assertThat(agenciaRemota.chamadas).isZero();
         }
 
@@ -106,7 +105,7 @@ class TransferenciaServiceTest {
     class EntreAgencias {
 
         @Test
-        @DisplayName("debita local e credita remoto usando aoEnviar (regra 2 de Lamport)")
+        @DisplayName("debita local e credita remoto usando aoEnviar (regra 2)")
         void debitaLocalECreditaRemoto() {
             Recibo recibo = servico.executar(ordem(0, 1, "30.00"));   // conta 1 -> agencia 1
 
@@ -114,8 +113,10 @@ class TransferenciaServiceTest {
             assertThat(repositorio.buscar(0).orElseThrow().saldo()).isEqualByComparingTo("70.00");
             assertThat(agenciaRemota.chamadas).isEqualTo(1);
             assertThat(agenciaRemota.ultimaAgenciaDestino).isEqualTo(1);
-            // debito = carimbo 1 (eventoLocal); envio = carimbo 2 (aoEnviar)
-            assertThat(agenciaRemota.ultimoCarimbo).isEqualTo(new CarimboLamport(2));
+            // debito = [1,0,0] (eventoLocal); envio = [2,0,0] (aoEnviar). O vetor INTEIRO
+            // vai na mensagem, nao so a posicao desta agencia — e isso que permite ao
+            // destino aprender o que a origem ja sabia das demais.
+            assertThat(agenciaRemota.ultimoCarimbo).isEqualTo(vetor(2, 0, 0));
         }
 
         @Test
@@ -138,16 +139,18 @@ class TransferenciaServiceTest {
     class CreditoRemoto {
 
         @Test
-        @DisplayName("ajusta o relogio para max(local, recebido) + 1 e credita a conta")
+        @DisplayName("ajusta o vetor para max posicao a posicao, +1 na propria, e credita")
         void ajustaRelogioECredita() {
-            servico.executar(ordem(0, 3, "10.00"));    // relogio local vai a 2
+            servico.executar(ordem(0, 3, "10.00"));    // transferencia local: vetor vai a [2,0,0]
 
-            Conta conta = servico.creditarRemoto(0, new BigDecimal("5.00"), new CarimboLamport(9), 2);
+            // chega uma mensagem da agencia 2, cujo vetor e [0,0,9]
+            Conta conta = servico.creditarRemoto(0, new BigDecimal("5.00"), vetor(0, 0, 9), 2);
 
             assertThat(conta.saldo()).isEqualByComparingTo("95.00");
             Evento credito = registro.eventos.get(registro.eventos.size() - 1);
             assertThat(credito.tipo()).isEqualTo("TRANSFERENCIA_CREDITO_REMOTO");
-            assertThat(credito.carimbo()).isEqualTo(new CarimboLamport(10));   // max(2, 9) + 1
+            // max posicao a posicao: max([2,0,0], [0,0,9]) = [2,0,9]; depois +1 na propria -> [3,0,9]
+            assertThat(credito.carimbo()).isEqualTo(vetor(3, 0, 9));
         }
     }
 
@@ -277,7 +280,7 @@ class TransferenciaServiceTest {
         void creditarRemotoRecusaContaDeOutraAgencia() {
             // conta 1 pertence a agencia 1; esta e a agencia 0
             assertThrows(ContaNaoPertenceAgenciaException.class,
-                    () -> servico.creditarRemoto(1, new BigDecimal("10.00"), new CarimboLamport(9), 1));
+                    () -> servico.creditarRemoto(1, new BigDecimal("10.00"), vetor(0, 9, 0), 1));
         }
     }
 
@@ -287,7 +290,7 @@ class TransferenciaServiceTest {
         final Set<Integer> contasQueExistemLa = new HashSet<>(Set.of(1, 2));
         int chamadas;
         int ultimaAgenciaDestino;
-        Carimbo ultimoCarimbo;
+        CarimboVetorial ultimoCarimbo;
         private boolean noAr = true;
 
         AgenciaRemotaFalsa() {
@@ -314,7 +317,7 @@ class TransferenciaServiceTest {
 
         @Override
         public void creditar(int idAgenciaDestino, int idConta, BigDecimal valor,
-                             Carimbo carimbo, int agenciaOrigem) {
+                             CarimboVetorial carimbo, int agenciaOrigem) {
             if (!noAr) {
                 throw new AgenciaRemotaIndisponivelException("agencia " + idAgenciaDestino + " fora do ar", null);
             }
@@ -332,10 +335,15 @@ class TransferenciaServiceTest {
         }
 
         @Override
-        public Evento registrar(String tipo, Carimbo carimbo, Map<String, Object> detalhes) {
+        public Evento registrar(String tipo, CarimboVetorial carimbo, Map<String, Object> detalhes) {
             Evento evento = new Evento("teste", tipo, carimbo, Instant.now(), detalhes);
             eventos.add(evento);
             return evento;
         }
+    }
+
+    /** Atalho: vetor(1, 0, 0) em vez de new CarimboVetorial(List.of(1, 0, 0)). */
+    private static CarimboVetorial vetor(int... valores) {
+        return new CarimboVetorial(java.util.Arrays.stream(valores).boxed().toList());
     }
 }

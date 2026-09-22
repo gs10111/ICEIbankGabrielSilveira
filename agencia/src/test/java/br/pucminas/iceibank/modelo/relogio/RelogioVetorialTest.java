@@ -250,7 +250,7 @@ class RelogioVetorialTest {
 
     @Nested
     @DisplayName("CarimboVetorial")
-    class Carimbo {
+    class Carimbos {
 
         @Test
         @DisplayName("e imutavel: a lista de origem nao pode alterar o carimbo depois")

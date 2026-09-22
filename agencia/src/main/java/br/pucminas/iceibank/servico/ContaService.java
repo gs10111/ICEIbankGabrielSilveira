@@ -8,8 +8,8 @@ import br.pucminas.iceibank.modelo.conta.ContaNaoPertenceAgenciaException;
 import br.pucminas.iceibank.modelo.conta.ValorInvalidoException;
 import br.pucminas.iceibank.modelo.evento.Evento;
 import br.pucminas.iceibank.modelo.particao.Particionador;
-import br.pucminas.iceibank.modelo.relogio.Carimbo;
-import br.pucminas.iceibank.modelo.relogio.RelogioLamport;
+import br.pucminas.iceibank.modelo.relogio.CarimboVetorial;
+import br.pucminas.iceibank.modelo.relogio.RelogioVetorial;
 import br.pucminas.iceibank.repositorio.ContaRepositorio;
 import br.pucminas.iceibank.repositorio.RegistroDeEventos;
 import org.springframework.stereotype.Service;
@@ -35,13 +35,13 @@ public class ContaService {
     private final int idAgencia;
     private final Particionador particionador;
     private final ContaRepositorio repositorio;
-    private final RelogioLamport relogio;
+    private final RelogioVetorial relogio;
     private final RegistroDeEventos eventos;
 
     public ContaService(AgenciaProperties propriedades,
                         Particionador particionador,
                         ContaRepositorio repositorio,
-                        RelogioLamport relogio,
+                        RelogioVetorial relogio,
                         RegistroDeEventos eventos) {
         this.idAgencia = propriedades.id();
         this.particionador = particionador;
@@ -57,7 +57,7 @@ public class ContaService {
         }
 
         // O carimbo vem DEPOIS das validacoes: so carimbamos o que de fato aconteceu.
-        Carimbo carimbo = relogio.eventoLocal();
+        CarimboVetorial carimbo = relogio.eventoLocal();
 
         Conta conta = new Conta(id, nome, saldoInicial);
         repositorio.inserir(conta);
@@ -76,7 +76,7 @@ public class ContaService {
         exigirQueSejaDestaAgencia(id);
         Conta conta = buscarOuFalhar(id);
 
-        Carimbo carimbo = relogio.eventoLocal();
+        CarimboVetorial carimbo = relogio.eventoLocal();
         conta.depositar(valor);                  // a REGRA mora na Conta, nao aqui
         eventos.registrar("DEPOSITO", carimbo,
                 Map.of("id", id, "valor", valor, "novoSaldo", conta.saldo()));
@@ -87,7 +87,7 @@ public class ContaService {
         exigirQueSejaDestaAgencia(id);
         Conta conta = buscarOuFalhar(id);
 
-        Carimbo carimbo = relogio.eventoLocal();
+        CarimboVetorial carimbo = relogio.eventoLocal();
         conta.sacar(valor);
         eventos.registrar("SAQUE", carimbo,
                 Map.of("id", id, "valor", valor, "novoSaldo", conta.saldo()));

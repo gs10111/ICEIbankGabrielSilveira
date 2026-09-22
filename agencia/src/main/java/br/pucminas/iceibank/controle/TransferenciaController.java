@@ -3,10 +3,10 @@ package br.pucminas.iceibank.controle;
 import br.pucminas.iceibank.servico.OrdemDeTransferencia;
 import br.pucminas.iceibank.servico.Recibo;
 import br.pucminas.iceibank.servico.TransferenciaService;
-import br.pucminas.iceibank.modelo.relogio.CarimboLamport;
 import br.pucminas.iceibank.config.AgenciaProperties;
 import br.pucminas.iceibank.controle.dto.ContaResposta;
 import br.pucminas.iceibank.controle.dto.CreditarRemotoRequest;
+import br.pucminas.iceibank.modelo.relogio.CarimboVetorial;
 import br.pucminas.iceibank.controle.dto.TransferenciaRequest;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,13 +46,13 @@ public class TransferenciaController {
                 new OrdemDeTransferencia(chave, pedido.idOrigem(), pedido.idDestino(), pedido.valor()));
     }
 
-    /** Chamada INTERNA, agencia-a-agencia. Aplica a regra 3 de Lamport. */
+    /** Chamada INTERNA, agencia-a-agencia. Aplica a regra 3 do relogio vetorial. */
     @PostMapping("/contas/{id}/creditar-remoto")
     public ContaResposta creditarRemoto(@PathVariable int id,
                                         @Valid @RequestBody CreditarRemotoRequest pedido) {
         return ContaResposta.de(
                 servico.creditarRemoto(id, pedido.valor(),
-                        new CarimboLamport(pedido.timestampLamport()), pedido.origemAgencia()),
+                        new CarimboVetorial(pedido.timestampVetorial()), pedido.origemAgencia()),
                 idAgencia);
     }
 }

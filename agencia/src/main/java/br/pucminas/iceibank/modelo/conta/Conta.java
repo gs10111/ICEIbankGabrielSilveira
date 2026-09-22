@@ -6,7 +6,7 @@ import java.math.BigDecimal;
  * Uma conta e o seu saldo.
  *
  * `synchronized` nos tres metodos que tocam o saldo, pelo mesmo motivo do
- * RelogioLamport: o Tomcat atende cada requisicao numa thread do pool, e
+ * RelogioVetorial: o Tomcat atende cada requisicao numa thread do pool, e
  * `saldo = saldo.add(...)` e um ler-modificar-escrever. Sem isto, dois depositos
  * simultaneos perdem um (lost update) e dois saques passam pela MESMA checagem de
  * saldo e deixam a conta negativa — violando o unico invariante que esta classe

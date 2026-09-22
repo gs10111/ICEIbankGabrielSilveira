@@ -9,9 +9,8 @@ import br.pucminas.iceibank.modelo.conta.ContaNaoPertenceAgenciaException;
 import br.pucminas.iceibank.modelo.conta.SaldoInsuficienteException;
 import br.pucminas.iceibank.modelo.evento.Evento;
 import br.pucminas.iceibank.modelo.particao.Particionador;
-import br.pucminas.iceibank.modelo.relogio.Carimbo;
-import br.pucminas.iceibank.modelo.relogio.CarimboLamport;
-import br.pucminas.iceibank.modelo.relogio.RelogioLamport;
+import br.pucminas.iceibank.modelo.relogio.CarimboVetorial;
+import br.pucminas.iceibank.modelo.relogio.RelogioVetorial;
 import br.pucminas.iceibank.repositorio.ContaRepositorio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,7 +44,7 @@ class ContaServiceTest {
         repositorio = new ContaRepositorio();
         registro = new RegistroEmLista();
         servico = new ContaService(
-                PROPRIEDADES, new Particionador(3), repositorio, new RelogioLamport(), registro);
+                PROPRIEDADES, new Particionador(3), repositorio, new RelogioVetorial(ID_AGENCIA, 3), registro);
     }
 
     // ---------- abertura ----------
@@ -88,7 +87,7 @@ class ContaServiceTest {
         servico.abrir(0, "Ana", new BigDecimal("100.00"));
 
         assertThat(registro.eventos).hasSize(1);
-        assertThat(registro.eventos.get(0).carimbo()).isEqualTo(new CarimboLamport(1));
+        assertThat(registro.eventos.get(0).carimbo()).isEqualTo(vetor(1, 0, 0));
     }
 
     // ---------- consulta ----------
@@ -151,18 +150,18 @@ class ContaServiceTest {
         assertThat(registro.eventos).hasSize(1);
         Evento evento = registro.eventos.get(0);
         assertThat(evento.tipo()).isEqualTo("CRIAR_CONTA");
-        assertThat(evento.carimbo()).isEqualTo(new CarimboLamport(1));
+        assertThat(evento.carimbo()).isEqualTo(vetor(1, 0, 0));
     }
 
     @Test
-    @DisplayName("operacoes sucessivas avancam o relogio: carimbos 1, 2 e 3")
+    @DisplayName("operacoes sucessivas avancam SO a propria posicao: [1,0,0], [2,0,0], [3,0,0]")
     void operacoesSucessivasAvancamORelogio() {
         servico.abrir(0, "Ana", new BigDecimal("100.00"));
         servico.depositar(0, new BigDecimal("10.00"));
         servico.sacar(0, new BigDecimal("5.00"));
 
         assertThat(registro.eventos).extracting(Evento::carimbo)
-                .containsExactly(new CarimboLamport(1), new CarimboLamport(2), new CarimboLamport(3));
+                .containsExactly(vetor(1, 0, 0), vetor(2, 0, 0), vetor(3, 0, 0));
         assertThat(registro.eventos).extracting(Evento::tipo)
                 .containsExactly("CRIAR_CONTA", "DEPOSITO", "SAQUE");
     }
@@ -218,7 +217,7 @@ class ContaServiceTest {
         }
 
         @Override
-        public Evento registrar(String tipo, Carimbo carimbo, Map<String, Object> detalhes) {
+        public Evento registrar(String tipo, CarimboVetorial carimbo, Map<String, Object> detalhes) {
             Evento evento = new Evento("teste", tipo, carimbo, Instant.now(), detalhes);
             eventos.add(evento);
             return evento;
@@ -244,5 +243,10 @@ class ContaServiceTest {
         public int quantidade() {
             return eventos.size();
         }
+    }
+
+    /** Atalho: vetor(1, 0, 0) em vez de new CarimboVetorial(List.of(1, 0, 0)). */
+    private static CarimboVetorial vetor(int... valores) {
+        return new CarimboVetorial(java.util.Arrays.stream(valores).boxed().toList());
     }
 }

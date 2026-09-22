@@ -167,7 +167,7 @@ class AutenticacaoTest {
         @DisplayName("creditar-remoto sem o token de servico e recusado")
         void semTokenDeServicoRecusa() throws Exception {
             mvc().perform(post("/contas/0/creditar-remoto").contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"valor\":10.00,\"timestampLamport\":5,\"origemAgencia\":1}"))
+                            .content("{\"valor\":10.00,\"timestampVetorial\":5,\"origemAgencia\":1}"))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.erro").value(org.hamcrest.Matchers.containsString("X-Agencia-Token")));
         }
@@ -182,7 +182,7 @@ class AutenticacaoTest {
             mvc().perform(post("/contas/609/creditar-remoto")
                             .header("X-Agencia-Token", seguranca.tokenEntreAgencias())
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"valor\":15.00,\"timestampLamport\":42,\"origemAgencia\":1}"))
+                            .content("{\"valor\":15.00,\"timestampVetorial\":[0,42,0],\"origemAgencia\":1}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.saldo").value(25.00));
         }

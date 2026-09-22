@@ -122,7 +122,7 @@ class ContaControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].tipo").value("DEPOSITO"))
                 .andExpect(jsonPath("$[1].tipo").value("CRIAR_CONTA"))
-                .andExpect(jsonPath("$[0].timestampLamport").isNumber());
+                .andExpect(jsonPath("$[0].timestampVetorial").isArray());
     }
 
     @Test

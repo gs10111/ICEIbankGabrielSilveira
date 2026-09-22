@@ -7,7 +7,18 @@ export function dinheiro(valor) {
   return MOEDA.format(Number(valor))
 }
 
-/** Hora de parede em 24h com milissegundos — a comparacao com Lamport na Parte E. */
+/**
+ * O carimbo vetorial como texto: [1, 0, 2].
+ *
+ * Um carimbo agora e uma LISTA, uma posicao por agencia — nao mais um inteiro.
+ * E essa lista que permite dizer se dois eventos sao concorrentes.
+ */
+export function vetor(valores) {
+  if (!Array.isArray(valores)) return '—'
+  return `[${valores.join(', ')}]`
+}
+
+/** Hora de parede em 24h com milissegundos — a comparacao com o relogio logico. */
 export function hora(iso) {
   if (!iso) return '—'
   const d = new Date(iso)

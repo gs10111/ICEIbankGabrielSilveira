@@ -154,7 +154,7 @@ export default function App() {
       segundosRestantes={segundosRestantes}
       agenciaEntrada={agenciaEntrada}
       aoTrocarAgencia={(id) => { setAgenciaEntrada(id); limpar() }}
-      relogioDaAgencia={malha[agenciaEntrada]?.relogioLamport}
+      relogioDaAgencia={malha[agenciaEntrada]?.relogioVetorial}
       tela={tela}
       aoNavegar={(t) => { setTela(t); limpar() }}
       aoSair={sair}

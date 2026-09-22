@@ -1,8 +1,7 @@
 package br.pucminas.iceibank.servico;
 
 import br.pucminas.iceibank.config.AgenciaProperties;
-import br.pucminas.iceibank.modelo.relogio.Carimbo;
-import br.pucminas.iceibank.modelo.relogio.CarimboLamport;
+import br.pucminas.iceibank.modelo.relogio.CarimboVetorial;
 import br.pucminas.iceibank.seguranca.SegurancaProperties;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -39,9 +38,9 @@ public class AgenciaRemota {
         this.tokenEntreAgencias = seguranca.tokenEntreAgencias();
     }
 
-    /** Credita numa conta de outra agencia, levando o carimbo de Lamport na mensagem. */
+    /** Credita numa conta de outra agencia, levando o VETOR inteiro na mensagem (regra 2). */
     public void creditar(int idAgenciaDestino, int idConta, BigDecimal valor,
-                         Carimbo carimbo, int agenciaOrigem) {
+                         CarimboVetorial carimbo, int agenciaOrigem) {
         String url = propriedades.urlDa(idAgenciaDestino) + "/contas/" + idConta + "/creditar-remoto";
         try {
             http.post()
@@ -50,7 +49,7 @@ public class AgenciaRemota {
                     .header("X-Agencia-Token", tokenEntreAgencias)
                     .body(Map.of(
                             "valor", valor,
-                            "timestampLamport", valorDo(carimbo),
+                            "timestampVetorial", carimbo.valores(),
                             "origemAgencia", agenciaOrigem))
                     .retrieve()
                     .toBodilessEntity();
@@ -73,11 +72,5 @@ public class AgenciaRemota {
             throw new AgenciaRemotaIndisponivelException(
                     "falha ao consultar agencia " + idAgencia + " em " + url + ": " + e.getMessage(), e);
         }
-    }
-
-    private static int valorDo(Carimbo carimbo) {
-        return switch (carimbo) {
-            case CarimboLamport(int valor) -> valor;
-        };
     }
 }

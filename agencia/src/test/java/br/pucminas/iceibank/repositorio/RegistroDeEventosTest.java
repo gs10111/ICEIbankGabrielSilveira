@@ -2,7 +2,7 @@ package br.pucminas.iceibank.repositorio;
 
 import br.pucminas.iceibank.config.AgenciaProperties;
 import br.pucminas.iceibank.modelo.evento.Evento;
-import br.pucminas.iceibank.modelo.relogio.CarimboLamport;
+import br.pucminas.iceibank.modelo.relogio.CarimboVetorial;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -27,7 +27,7 @@ class RegistroDeEventosTest {
     void gravaUmaLinhaJsonPorEvento() throws IOException {
         RegistroDeEventos registro = new RegistroDeEventos(configuracao(0, pastaTemporaria));
 
-        Evento evento = registro.registrar("CRIAR_CONTA", new CarimboLamport(1),
+        Evento evento = registro.registrar("CRIAR_CONTA", vetor(1, 0, 0),
                 Map.of("id", 0, "nomeAluno", "Ana"));
 
         List<String> linhas = Files.readAllLines(registro.caminhoArquivo());
@@ -36,7 +36,8 @@ class RegistroDeEventosTest {
         JsonNode lido = new ObjectMapper().readTree(linhas.get(0));
         assertThat(lido.get("agencia").asText()).isEqualTo("agencia-0");
         assertThat(lido.get("tipo").asText()).isEqualTo("CRIAR_CONTA");
-        assertThat(lido.get("timestampLamport").asInt()).isEqualTo(1);
+        assertThat(lido.get("timestampVetorial").isArray()).as("o carimbo virou ARRAY no Sprint 2").isTrue();
+        assertThat(lido.get("timestampVetorial").toString()).isEqualTo("[1,0,0]");
         assertThat(lido.get("horaParede").asText()).isNotBlank();
         assertThat(lido.get("detalhes").get("nomeAluno").asText()).isEqualTo("Ana");
 
@@ -48,8 +49,8 @@ class RegistroDeEventosTest {
     void acrescentaSemSobrescrever() throws IOException {
         RegistroDeEventos registro = new RegistroDeEventos(configuracao(0, pastaTemporaria));
 
-        registro.registrar("CRIAR_CONTA", new CarimboLamport(1), Map.of("id", 0));
-        registro.registrar("DEPOSITO", new CarimboLamport(2), Map.of("id", 0, "valor", 25));
+        registro.registrar("CRIAR_CONTA", vetor(1, 0, 0), Map.of("id", 0));
+        registro.registrar("DEPOSITO", vetor(2, 0, 0), Map.of("id", 0, "valor", 25));
 
         assertThat(Files.readAllLines(registro.caminhoArquivo())).hasSize(2);
     }
@@ -70,23 +71,29 @@ class RegistroDeEventosTest {
     }
 
     @Test
-    @DisplayName("maiorCarimbo devolve o maior timestamp ja gravado, nao o ultimo")
-    void maiorCarimboDoArquivo() {
+    @DisplayName("vetorRestaurado devolve o maximo POSICAO A POSICAO, nao o ultimo vetor")
+    void vetorRestauradoEhOMaximoPosicaoAPosicao() {
         RegistroDeEventos registro = new RegistroDeEventos(configuracao(0, pastaTemporaria));
 
-        registro.registrar("CRIAR_CONTA", new CarimboLamport(1), Map.of("id", 0));
-        registro.registrar("DEPOSITO", new CarimboLamport(5), Map.of("id", 0));
-        registro.registrar("SAQUE", new CarimboLamport(3), Map.of("id", 0));
+        registro.registrar("CRIAR_CONTA", vetor(1, 0, 0), Map.of("id", 0));
+        registro.registrar("DEPOSITO", vetor(5, 2, 0), Map.of("id", 0));
+        registro.registrar("SAQUE", vetor(3, 7, 1), Map.of("id", 0));
 
-        assertThat(registro.maiorCarimbo()).isEqualTo(5);
+        // o ULTIMO e [3,7,1], mas o maximo posicao a posicao e [5,7,1]
+        assertThat(registro.vetorRestaurado(3)).isEqualTo(vetor(5, 7, 1));
     }
 
     @Test
-    @DisplayName("sem arquivo de eventos, maiorCarimbo e zero")
-    void maiorCarimboSemArquivo() {
+    @DisplayName("sem arquivo de eventos, o vetor restaurado e de zeros")
+    void vetorRestauradoSemArquivo() {
         RegistroDeEventos registro = new RegistroDeEventos(configuracao(1, pastaTemporaria));
 
-        assertThat(registro.maiorCarimbo()).isZero();
+        assertThat(registro.vetorRestaurado(3)).isEqualTo(vetor(0, 0, 0));
     }
 
+
+    /** Atalho: vetor(1, 0, 0) em vez de new CarimboVetorial(List.of(1, 0, 0)). */
+    private static CarimboVetorial vetor(int... valores) {
+        return new CarimboVetorial(java.util.Arrays.stream(valores).boxed().toList());
+    }
 }

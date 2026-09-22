@@ -6,8 +6,8 @@ import br.pucminas.iceibank.modelo.conta.ContaNaoEncontradaException;
 import br.pucminas.iceibank.modelo.conta.ContaNaoPertenceAgenciaException;
 import br.pucminas.iceibank.modelo.conta.ValorInvalidoException;
 import br.pucminas.iceibank.modelo.particao.Particionador;
-import br.pucminas.iceibank.modelo.relogio.Carimbo;
-import br.pucminas.iceibank.modelo.relogio.RelogioLamport;
+import br.pucminas.iceibank.modelo.relogio.CarimboVetorial;
+import br.pucminas.iceibank.modelo.relogio.RelogioVetorial;
 import br.pucminas.iceibank.repositorio.ContaRepositorio;
 import br.pucminas.iceibank.repositorio.RegistroDeEventos;
 import br.pucminas.iceibank.repositorio.RegistroDeIdempotencia;
@@ -19,7 +19,7 @@ import java.util.Map;
 /**
  * Transferencia local (mesma agencia) e entre agencias.
  *
- * Onde cada regra de Lamport entra:
+ * Onde cada regra do relogio vetorial entra:
  *  - debito         -> eventoLocal()  (regra 1) — a origem e sempre local
  *  - credito local  -> eventoLocal()  (regra 1) — nao ha mensagem, nao ha o que sincronizar
  *  - credito remoto -> aoEnviar()     (regra 2) na origem, e aoReceber() (regra 3) no destino
@@ -34,7 +34,7 @@ public class TransferenciaService {
     private final int idAgencia;
     private final Particionador particionador;
     private final ContaRepositorio repositorio;
-    private final RelogioLamport relogio;
+    private final RelogioVetorial relogio;
     private final RegistroDeEventos eventos;
     private final AgenciaRemota agenciaRemota;
     private final RegistroDeIdempotencia idempotencia;
@@ -42,7 +42,7 @@ public class TransferenciaService {
     public TransferenciaService(AgenciaProperties propriedades,
                                 Particionador particionador,
                                 ContaRepositorio repositorio,
-                                RelogioLamport relogio,
+                                RelogioVetorial relogio,
                                 RegistroDeEventos eventos,
                                 AgenciaRemota agenciaRemota,
                                 RegistroDeIdempotencia idempotencia) {
@@ -92,11 +92,11 @@ public class TransferenciaService {
                 .orElseThrow(() -> new ContaNaoEncontradaException(
                         "conta de destino nao encontrada nesta agencia: " + ordem.idDestino()));
 
-        Carimbo carimboDebito = relogio.eventoLocal();
+        CarimboVetorial carimboDebito = relogio.eventoLocal();
         origem.sacar(ordem.valor());
         eventos.registrar("TRANSFERENCIA_DEBITO", carimboDebito, detalhes(ordem));
 
-        Carimbo carimboCredito = relogio.eventoLocal();
+        CarimboVetorial carimboCredito = relogio.eventoLocal();
         destino.depositar(ordem.valor());
         eventos.registrar("TRANSFERENCIA_CREDITO", carimboCredito, detalhes(ordem));
 
@@ -109,12 +109,12 @@ public class TransferenciaService {
     private Recibo transferirEntreAgencias(OrdemDeTransferencia ordem, Conta origem, int agenciaDestino) {
         exigirQueODestinoExista(ordem, agenciaDestino);
 
-        Carimbo carimboDebito = relogio.eventoLocal();
+        CarimboVetorial carimboDebito = relogio.eventoLocal();
         origem.sacar(ordem.valor());                  // Conta valida saldo e valor
         eventos.registrar("TRANSFERENCIA_DEBITO", carimboDebito, detalhes(ordem));
 
-        // Regra 2 de Lamport: ao ENVIAR mensagem, incrementa e anexa o carimbo.
-        Carimbo carimboEnvio = relogio.aoEnviar();
+        // Regra 2: ao ENVIAR mensagem, incrementa a propria posicao e anexa o VETOR inteiro.
+        CarimboVetorial carimboEnvio = relogio.aoEnviar();
 
         try {
             agenciaRemota.creditar(agenciaDestino, ordem.idDestino(), ordem.valor(), carimboEnvio, idAgencia);
@@ -155,13 +155,13 @@ public class TransferenciaService {
     // ------------------------------------------------------------ credito remoto
 
     /**
-     * Chamado pela agencia de ORIGEM. Aplica a regra 3 de Lamport.
+     * Chamado pela agencia de ORIGEM. Aplica a regra 3 do relogio vetorial.
      *
      * O relogio e ajustado ANTES de saber se a conta existe: receber a mensagem
      * ja e um evento, independente do que acontece depois com ela.
      */
-    public Conta creditarRemoto(int idConta, BigDecimal valor, Carimbo carimboRecebido, int agenciaOrigem) {
-        Carimbo carimbo = relogio.aoReceber(carimboRecebido);
+    public Conta creditarRemoto(int idConta, BigDecimal valor, CarimboVetorial carimboRecebido, int agenciaOrigem) {
+        CarimboVetorial carimbo = relogio.aoReceber(carimboRecebido);
 
         // Sem isto a recusa seria efeito colateral de a conta nao existir localmente,
         // e o cliente veria 404 ("nao encontrada") no lugar de 400 ("nao e minha").

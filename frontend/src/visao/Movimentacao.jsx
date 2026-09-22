@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { hora } from '../modelo/formato.js'
+import { hora, vetor } from '../modelo/formato.js'
 import { Alerta, Blueprint, Campo, Tag } from './componentes/Base.jsx'
 
 /** VIEW — deposito e saque, parametrizados pelo tipo. */
@@ -49,7 +49,7 @@ export default function Movimentacao({ tipo, contaPadrao, eventosDaAgencia, aler
                 {eventosDaAgencia.slice(0, 6).map((evento, indice) => (
                   <tr key={indice}>
                     <td className="num" style={{ fontFamily: 'var(--font-heading)',
-                      color: 'var(--color-accent-700)' }}>{evento.timestampLamport}</td>
+                      color: 'var(--color-accent-700)', fontSize: 12 }}>{vetor(evento.timestampVetorial)}</td>
                     <td><Tag tipo="accent">{evento.tipo}</Tag></td>
                     <td style={{ fontSize: 12, color: 'var(--color-neutral-600)' }}>
                       {JSON.stringify(evento.detalhes)}

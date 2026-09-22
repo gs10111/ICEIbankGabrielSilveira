@@ -14,7 +14,7 @@ import java.util.Arrays;
  *   2. ao enviar       -> incrementa a propria posicao e anexa o vetor inteiro a mensagem
  *   3. ao receber V    -> vetor[i] = max(vetor[i], V[i]) em cada posicao, DEPOIS incrementa a propria
  *
- * `synchronized` pelo mesmo motivo do RelogioLamport do Sprint 1: `vetor[i] += 1` e
+ * `synchronized` pelo mesmo motivo do RelogioVetorial do Sprint 1: `vetor[i] += 1` e
  * um ler-modificar-escrever, e o Tomcat atende cada requisicao numa thread do pool.
  * No Sprint 1 o teste de 100 threads pegou o contador perdendo uma escrita; aqui o
  * teste equivalente existe desde o primeiro commit.

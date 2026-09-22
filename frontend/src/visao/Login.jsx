@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AGENCIAS, agenciaResponsavel } from '../modelo/agencias.js'
+import { vetor } from '../modelo/formato.js'
 import { api, ErroDaApi } from '../modelo/api.js'
 import { Alerta, Blueprint, Campo, Segmentado } from './componentes/Base.jsx'
 import { useAlerta } from '../controle/useAlerta.js'
@@ -59,7 +60,7 @@ export default function Login({ aoEntrar }) {
           <h1>ICEIBANK</h1>
           <p style={{ maxWidth: '42ch', marginTop: 'var(--space-4)', color: 'var(--color-neutral-700)' }}>
             Banco particionado em três agências independentes. Toda operação carimbada
-            com relógio lógico de Lamport.
+            com relógio lógico vetorial.
           </p>
 
           <div style={{ maxWidth: 520, marginTop: 'var(--space-7)', border: '1px solid var(--color-divider)',
@@ -73,7 +74,7 @@ export default function Login({ aoEntrar }) {
                   {malha[a.id] === null
                     ? 'fora do ar'
                     : malha[a.id]
-                      ? `${malha[a.id].contas} contas · Lamport ${malha[a.id].relogioLamport}`
+                      ? `${malha[a.id].contas} contas · ${vetor(malha[a.id].relogioVetorial)}`
                       : '…'}
                 </div>
               </div>

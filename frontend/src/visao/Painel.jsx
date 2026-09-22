@@ -1,5 +1,5 @@
 import { AGENCIAS } from '../modelo/agencias.js'
-import { dinheiro, hora, rotuloDoEvento, sinalDoEvento, valorDoEvento } from '../modelo/formato.js'
+import { dinheiro, hora, rotuloDoEvento, sinalDoEvento, valorDoEvento, vetor } from '../modelo/formato.js'
 import { Blueprint, IconeDeposito, IconeSaque, IconeTransferencia, Tag } from './componentes/Base.jsx'
 
 /** VIEW — saldo, ultimos lancamentos e a malha de agencias. */
@@ -49,7 +49,7 @@ export default function Painel({ conta, eventos, malha, agenciaEntrada, aoNavega
                     <div style={{ flex: 1 }}>
                       <div className="card-title">{rotuloDoEvento(evento.tipo)}</div>
                       <div className="card-meta">
-                        AG {evento.agencia.replace('agencia-', '')} · Lamport {evento.timestampLamport} · {hora(evento.horaParede)}
+                        AG {evento.agencia.replace('agencia-', '')} · {vetor(evento.timestampVetorial)} · {hora(evento.horaParede)}
                       </div>
                     </div>
                     <div className="num" style={{ fontFamily: 'var(--font-heading)', fontSize: 17,
@@ -83,7 +83,7 @@ export default function Painel({ conta, eventos, malha, agenciaEntrada, aoNavega
               <div className="porta">:{a.porta}</div>
               <div className="card-body">
                 contas sob responsabilidade: {status?.contas ?? '—'}<br />
-                relógio de Lamport: {status?.relogioLamport ?? '—'}<br />
+                relógio vetorial: {vetor(status?.relogioVetorial)}<br />
                 eventos registrados: {status?.eventos ?? '—'}
               </div>
             </Blueprint>

@@ -17,12 +17,14 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 /**
- * PARTE E — linha do tempo unificada.
+ * Linha do tempo unificada das 3 agencias.
  *
- * Le os .jsonl das 3 agencias e monta UMA sequencia ordenada por relogio de Lamport.
- * Marca os EMPATES (mesmo timestamp em agencias diferentes), que sao a evidencia
- * de que Lamport define ordem PARCIAL, nao total: timestamps iguais nao dizem qual
- * evento veio antes — dizem que nenhum causou o outro.
+ * Sprint 1 (Parte E): ordenava por um inteiro de Lamport e marcava EMPATES.
+ * Sprint 2 (Parte B): o carimbo virou VETOR, entao nao existe mais "ordenar por
+ * carimbo" — vetores dao ordem PARCIAL, e uma lista impressa e necessariamente
+ * uma ordem total. A listagem passa a ser por hora de parede (so para ficar
+ * legivel) com o vetor visivel em cada linha; quem responde "quem veio antes" e
+ * a comparacao de vetores, que entra na Parte D.
  *
  * Rodar:
  *   java -jar target/iceibank-agencia-1.0.0.jar --mesclar-logs [pasta]
@@ -43,84 +45,42 @@ public final class MesclarLogs {
         List<Map<String, Object>> eventos = lerTodos(pasta);
         StringBuilder saida = new StringBuilder();
 
-        saida.append("=== Linha do tempo unificada (ordenada por relogio de Lamport) ===\n");
+        saida.append("=== Linha do tempo unificada (relogio vetorial) ===\n");
         saida.append("pasta: ").append(pasta.toAbsolutePath()).append('\n');
         if (eventos.isEmpty()) {
             saida.append("\nNenhum evento encontrado. Rode as agencias e faca algumas operacoes primeiro.\n");
             return saida.toString();
         }
 
-        // Desempate ESTAVEL por hora de parede so para a exibicao ficar legivel.
-        // O criterio de ordenacao continua sendo o relogio logico; a hora fisica
-        // NAO carrega causalidade e nao decide nada no sistema.
-        eventos.sort(Comparator
-                .<Map<String, Object>>comparingInt(e -> inteiro(e.get("timestampLamport")))
-                .thenComparing(e -> String.valueOf(e.get("horaParede"))));
-
-        Map<Integer, List<Map<String, Object>>> porTimestamp = new LinkedHashMap<>();
-        for (Map<String, Object> evento : eventos) {
-            porTimestamp.computeIfAbsent(inteiro(evento.get("timestampLamport")), k -> new ArrayList<>()).add(evento);
-        }
+        // Ordenada por hora de parede APENAS para exibicao. A hora fisica nao carrega
+        // causalidade e nao decide nada no sistema — quem responde isso e o vetor.
+        eventos.sort(Comparator.comparing(e -> String.valueOf(e.get("horaParede"))));
 
         saida.append('\n');
         for (Map<String, Object> evento : eventos) {
-            int lamport = inteiro(evento.get("timestampLamport"));
-            boolean empatado = porTimestamp.get(lamport).size() > 1;
-            saida.append(String.format("[Lamport %3d]%s (%s) %-10s - %-30s %s%n",
-                    lamport,
-                    empatado ? " <EMPATE>" : "        ",
+            saida.append(String.format("%-12s (%s) %-10s - %-30s %s%n",
+                    vetorDe(evento),
                     evento.get("horaParede"),
                     evento.get("agencia"),
                     evento.get("tipo"),
                     evento.get("detalhes")));
         }
 
-        // ------- analise dos empates -------
-        List<Map.Entry<Integer, List<Map<String, Object>>>> empates = porTimestamp.entrySet().stream()
-                .filter(entrada -> entrada.getValue().size() > 1)
-                .toList();
-
-        saida.append("\n=== Analise ===\n");
+        saida.append("\n=== Resumo ===\n");
         saida.append("eventos: ").append(eventos.size())
                 .append(" | agencias: ").append(eventos.stream().map(e -> e.get("agencia")).distinct().count())
-                .append(" | timestamps empatados: ").append(empates.size()).append('\n');
-
-        if (empates.isEmpty()) {
-            saida.append("""
-                    
-                    Nenhum empate nesta amostra. Para produzir um: rode uma operacao em
-                    cada agencia quase ao mesmo tempo (elas nao trocam mensagem, entao os
-                    contadores avancam de forma independente e colidem).
-                    """);
-            return saida.toString();
-        }
-
-        for (Map.Entry<Integer, List<Map<String, Object>>> empate : empates) {
-            saida.append("\nLamport ").append(empate.getKey()).append(" — ")
-                    .append(empate.getValue().size()).append(" eventos:\n");
-            for (Map<String, Object> evento : empate.getValue()) {
-                saida.append("   ").append(evento.get("agencia")).append(" ")
-                        .append(evento.get("tipo")).append("  (hora de parede: ")
-                        .append(evento.get("horaParede")).append(")\n");
-            }
-            boolean mesmaAgencia = empate.getValue().stream()
-                    .map(e -> String.valueOf(e.get("agencia"))).distinct().count() == 1;
-            saida.append(mesmaAgencia
-                    ? "   -> MESMA agencia com carimbos iguais: isso seria BUG (contador nao thread-safe).\n"
-                    : "   -> Agencias diferentes: eventos CONCORRENTES. Nenhum causou o outro,\n"
-                      + "      e Lamport, por construcao, nao consegue ordena-los. A hora de parede\n"
-                      + "      sugere uma ordem, mas ela nao significa causalidade — relogios fisicos\n"
-                      + "      de maquinas distintas nao estao sincronizados.\n");
-        }
-
-        saida.append("""
-                
-                Conclusao: o relogio de Lamport garante que A -> B implica ts(A) < ts(B),
-                mas NAO a volta. Dado ts(A) < ts(B), A pode ter causado B ou os dois podem
-                ser concorrentes — nao da para distinguir. E essa lacuna que o relogio
-                vetorial do Sprint 2 fecha.
-                """);
+                .append('\n');
         return saida.toString();
+    }
+
+    /** O vetor da linha, no formato [a, b, c]. Linha sem o campo aparece como [?]. */
+    @SuppressWarnings("unchecked")
+    static List<Integer> vetorDe(Map<String, Object> evento) {
+        Object bruto = evento.get("timestampVetorial");
+        if (!(bruto instanceof List<?> lista)) {
+            return List.of();
+        }
+        return ((List<Number>) lista).stream().map(Number::intValue).toList();
     }
 
     private static List<Map<String, Object>> lerTodos(Path pasta) {

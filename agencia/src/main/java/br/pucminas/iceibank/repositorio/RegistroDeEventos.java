@@ -2,8 +2,7 @@ package br.pucminas.iceibank.repositorio;
 
 import br.pucminas.iceibank.config.AgenciaProperties;
 import br.pucminas.iceibank.modelo.evento.Evento;
-import br.pucminas.iceibank.modelo.relogio.Carimbo;
-import br.pucminas.iceibank.modelo.relogio.CarimboLamport;
+import br.pucminas.iceibank.modelo.relogio.CarimboVetorial;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Repository;
@@ -16,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,10 +49,10 @@ public class RegistroDeEventos {
         this.caminhoArquivo = pastaDados.resolve("eventos-" + nomeAgencia + ".jsonl");
     }
 
-    public synchronized Evento registrar(String tipo, Carimbo carimbo, Map<String, Object> detalhes) {
+    public synchronized Evento registrar(String tipo, CarimboVetorial carimbo, Map<String, Object> detalhes) {
         Evento evento = new Evento(nomeAgencia, tipo, carimbo, Instant.now(), detalhes);
         escrever(evento);
-        System.out.println("[Lamport " + valorSerializavel(carimbo) + "] " + tipo + " " + detalhes);
+        System.out.println("[vetor " + carimbo + "] " + tipo + " " + detalhes);
         return evento;
     }
 
@@ -82,19 +82,21 @@ public class RegistroDeEventos {
     }
 
     /**
-     * O maior carimbo ja gravado neste arquivo, ou 0 se nao ha arquivo.
+     * O vetor a partir do qual esta agencia deve retomar o relogio ao subir.
      *
-     * O MAIOR, nao o ultimo: se a agencia ja reiniciou sem restaurar o relogio, o
-     * arquivo tem carimbos fora de ordem (…, 11, 1, 2) e o ultimo mentiria.
+     * E o maximo POSICAO A POSICAO de todos os vetores ja gravados — nao o ultimo.
+     * Se a agencia ja reiniciou sem restaurar, o arquivo tem vetores fora de ordem e
+     * o ultimo mentiria. Vetor de zeros quando nao ha arquivo.
      */
-    public synchronized int maiorCarimbo() {
-        int maior = 0;
+    public synchronized CarimboVetorial vetorRestaurado(int totalDeAgencias) {
+        int[] maior = new int[totalDeAgencias];
         for (Map<String, Object> linha : lerTodasAsLinhas()) {
-            if (linha.get("timestampLamport") instanceof Number numero) {
-                maior = Math.max(maior, numero.intValue());
+            List<Integer> vetor = vetorDe(linha);
+            for (int i = 0; i < Math.min(vetor.size(), totalDeAgencias); i++) {
+                maior[i] = Math.max(maior[i], vetor.get(i));
             }
         }
-        return maior;
+        return new CarimboVetorial(Arrays.stream(maior).boxed().toList());
     }
 
     public Path caminhoArquivo() {
@@ -107,7 +109,7 @@ public class RegistroDeEventos {
         Map<String, Object> linha = new LinkedHashMap<>();   // LinkedHashMap preserva a ordem dos campos
         linha.put("agencia", evento.agencia());
         linha.put("tipo", evento.tipo());
-        linha.put("timestampLamport", valorSerializavel(evento.carimbo()));
+        linha.put("timestampVetorial", evento.carimbo().valores());
         linha.put("horaParede", evento.horaParede().toString());
         linha.put("detalhes", evento.detalhes());
 
@@ -142,12 +144,12 @@ public class RegistroDeEventos {
 
     @SuppressWarnings("unchecked")
     private Evento paraEvento(Map<String, Object> linha) {
-        int timestamp = ((Number) linha.get("timestampLamport")).intValue();
+        List<Integer> vetor = vetorDe(linha);
         Map<String, Object> detalhes = (Map<String, Object>) linha.getOrDefault("detalhes", Map.of());
         return new Evento(
                 (String) linha.get("agencia"),
                 (String) linha.get("tipo"),
-                new CarimboLamport(timestamp),
+                new CarimboVetorial(vetor),
                 Instant.parse((String) linha.get("horaParede")),
                 detalhes);
     }
@@ -163,12 +165,18 @@ public class RegistroDeEventos {
     }
 
     /**
-     * Formato do carimbo e detalhe de SERIALIZACAO — mora na infra, nao no dominio.
-     * Sendo `sealed`, no Sprint 2 este switch para de compilar e aponta onde tratar o vetorial.
+     * Le o vetor de uma linha do .jsonl.
+     *
+     * O Jackson devolve List<Integer> para um array JSON de inteiros. Linha sem o
+     * campo devolve lista vazia — nao existe hoje, mas evita NPE se um log for
+     * truncado no meio de uma escrita.
      */
-    private static Object valorSerializavel(Carimbo carimbo) {
-        return switch (carimbo) {
-            case CarimboLamport(int valor) -> valor;
-        };
+    @SuppressWarnings("unchecked")
+    private static List<Integer> vetorDe(Map<String, Object> linha) {
+        Object bruto = linha.get("timestampVetorial");
+        if (!(bruto instanceof List<?> lista)) {
+            return List.of();
+        }
+        return ((List<Number>) lista).stream().map(Number::intValue).toList();
     }
 }
