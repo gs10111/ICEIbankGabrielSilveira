@@ -241,5 +241,7 @@ Isso é deliberado: é o problema que o **Sprint 4** resolve com transações di
 
 ## Documentos
 
+- `CONTEXTO.md` — **comece por aqui**: estado do projeto, decisões e seus porquês, armadilhas conhecidas e próximo passo
+
 - `RESPOSTAS.md` — todas as questões do roteiro, decisões de design e declaração de uso de IA
 - `evidencias/sprint1/` — prints das execuções
