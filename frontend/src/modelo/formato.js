@@ -35,17 +35,32 @@ const ROTULOS = {
   TRANSFERENCIA_CREDITO: 'Transferência recebida',
   TRANSFERENCIA_CREDITO_REMOTO: 'Recebida de outra agência',
   TRANSFERENCIA_FALHOU: 'Transferência falhou',
+  CREDITO_REMOTO_FALHOU: 'Crédito remoto não aplicado',
+  CREDITO_REMOTO_DUPLICADO: 'Reentrega ignorada',
 }
 
 export function rotuloDoEvento(tipo) {
   return ROTULOS[tipo] ?? tipo
 }
 
-/** Sinal do lancamento na visao da conta: credito (+) ou debito (−). */
+const ENTRAM = ['DEPOSITO', 'TRANSFERENCIA_CREDITO', 'TRANSFERENCIA_CREDITO_REMOTO', 'CRIAR_CONTA']
+
+/**
+ * Eventos que NAO movem dinheiro: a transferencia que falhou, o credito remoto que
+ * nao teve onde ser aplicado, a reentrega que foi ignorada. Sao os tres registros
+ * que o Sprint 2 acrescentou ao log e nenhum deles altera saldo.
+ */
+const NAO_MOVEM = ['TRANSFERENCIA_FALHOU', 'CREDITO_REMOTO_FALHOU', 'CREDITO_REMOTO_DUPLICADO']
+
+/**
+ * Sinal do lancamento na visao da conta: entrada (+), saida (−) ou nenhum (·).
+ *
+ * O terceiro caso nao e enfeite. Com dois valores possiveis, "Reentrega ignorada"
+ * aparecia no painel como "− 40,00" — a tela afirmando uma saida que nao existiu.
+ */
 export function sinalDoEvento(tipo) {
-  return ['DEPOSITO', 'TRANSFERENCIA_CREDITO', 'TRANSFERENCIA_CREDITO_REMOTO', 'CRIAR_CONTA'].includes(tipo)
-    ? '+'
-    : '−'
+  if (NAO_MOVEM.includes(tipo)) return '·'
+  return ENTRAM.includes(tipo) ? '+' : '−'
 }
 
 export function valorDoEvento(detalhes) {
