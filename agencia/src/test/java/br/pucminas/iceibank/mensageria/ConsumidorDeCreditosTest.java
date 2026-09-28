@@ -10,6 +10,7 @@ import br.pucminas.iceibank.modelo.relogio.RelogioVetorial;
 import br.pucminas.iceibank.repositorio.ContaRepositorio;
 import br.pucminas.iceibank.repositorio.RegistroDeEventos;
 import br.pucminas.iceibank.repositorio.RegistroDeIdempotencia;
+import br.pucminas.iceibank.repositorio.RegistroDeMensagensProcessadas;
 import br.pucminas.iceibank.servico.Publicador;
 import br.pucminas.iceibank.servico.TransferenciaService;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,7 +51,8 @@ class ConsumidorDeCreditosTest {
         TransferenciaService transferencias = new TransferenciaService(
                 AGENCIA_1, new Particionador(3), repositorio, relogio, registro,
                 new PublicadorMudo(), new RegistroDeIdempotencia());
-        consumidor = new ConsumidorDeCreditos(transferencias, registro, relogio);
+        consumidor = new ConsumidorDeCreditos(transferencias, registro, relogio,
+                new RegistroDeMensagensProcessadas());
     }
 
     @Test
@@ -92,6 +94,37 @@ class ConsumidorDeCreditosTest {
         consumidor.aoReceberCredito(new CreditoRemoto(2, new BigDecimal("10.00"), List.of(1, 0, 0), 0));
 
         assertThat(registro.eventos).extracting(Evento::tipo).containsExactly("CREDITO_REMOTO_FALHOU");
+    }
+
+    @Test
+    @DisplayName("reentrega da MESMA mensagem credita uma vez so")
+    void reentregaNaoCreditaDuasVezes() {
+        // A entrega do RabbitMQ e AT-LEAST-ONCE: um ack perdido faz o broker reentregar
+        // uma mensagem que ja foi processada. Sem defesa, o dinheiro entra duas vezes —
+        // e o cliente nao tem como perceber que recebeu de graca.
+        repositorio.inserir(new Conta(1, "Bruno", new BigDecimal("800.00")));
+        CreditoRemoto mensagem = new CreditoRemoto(1, new BigDecimal("40.00"), List.of(4, 0, 0), 0);
+
+        consumidor.aoReceberCredito(mensagem);
+        consumidor.aoReceberCredito(mensagem);
+
+        assertThat(repositorio.buscar(1).orElseThrow().saldo()).isEqualByComparingTo("840.00");
+        assertThat(registro.eventos).extracting(Evento::tipo)
+                .containsExactly("TRANSFERENCIA_CREDITO_REMOTO", "CREDITO_REMOTO_DUPLICADO");
+    }
+
+    @Test
+    @DisplayName("mensagens diferentes da mesma origem continuam passando as duas")
+    void mensagensDistintasNaoSaoConfundidas() {
+        // A defesa nao pode ser "so aceito uma mensagem por agencia". O que identifica a
+        // mensagem e o par (origem, vetorEnvio), e o vetor da origem nunca repete porque
+        // cada envio incrementa a posicao dela.
+        repositorio.inserir(new Conta(1, "Bruno", new BigDecimal("800.00")));
+
+        consumidor.aoReceberCredito(new CreditoRemoto(1, new BigDecimal("40.00"), List.of(4, 0, 0), 0));
+        consumidor.aoReceberCredito(new CreditoRemoto(1, new BigDecimal("10.00"), List.of(5, 0, 0), 0));
+
+        assertThat(repositorio.buscar(1).orElseThrow().saldo()).isEqualByComparingTo("850.00");
     }
 
     @Test
