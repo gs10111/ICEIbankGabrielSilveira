@@ -58,6 +58,20 @@ class MesclarLogsTest {
                         + " em agencias diferentes e rode de novo)");
     }
 
+    @Test
+    @DisplayName("o resumo conta os pares concorrentes: o numero cabe no print, a lista nao")
+    void resumoTrazAContagemDeParesConcorrentes(@TempDir Path pasta) throws IOException {
+        // 22 eventos reais de uma execucao produziram 123 pares. A lista completa e o
+        // que o roteiro pede, mas nao e o que se le num print — o numero e.
+        gravar(pasta, "agencia-0", "CRIAR_CONTA", "[1,0,0]", "2026-09-28T12:00:00Z");
+        gravar(pasta, "agencia-1", "CRIAR_CONTA", "[0,1,0]", "2026-09-28T12:00:01Z");
+        gravar(pasta, "agencia-2", "CRIAR_CONTA", "[0,0,1]", "2026-09-28T12:00:02Z");
+
+        String relatorio = MesclarLogs.montarRelatorio(pasta);
+
+        assertThat(relatorio).contains("pares concorrentes: 3");
+    }
+
     // ------------------------------------------------------------------ apoio
 
     private static void gravar(Path pasta, String agencia, String tipo, String vetor, String hora)

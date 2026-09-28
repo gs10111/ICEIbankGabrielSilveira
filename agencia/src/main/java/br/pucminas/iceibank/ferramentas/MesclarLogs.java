@@ -83,6 +83,7 @@ public final class MesclarLogs {
         saida.append("\n=== Resumo ===\n");
         saida.append("eventos: ").append(eventos.size())
                 .append(" | agencias: ").append(eventos.stream().map(e -> e.get("agencia")).distinct().count())
+                .append(" | pares concorrentes: ").append(concorrentes.size())
                 .append('\n');
         return saida.toString();
     }
