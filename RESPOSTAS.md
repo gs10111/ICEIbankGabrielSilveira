@@ -1,4 +1,4 @@
-# RESPOSTAS — ICEIBank Sprint 1
+# RESPOSTAS — ICEIBank (Sprints 1 e 2)
 
 **Aluno:** gabriel silveira · RA 1466316
 **Disciplina:** Lab. de Desenvolvimento de Aplicações Móveis e Distribuídas — U2
@@ -296,6 +296,262 @@ A conta 0 foi lida **localmente** e a 4 **pela rede**, na agência 1 — e o `co
 
 ---
 
+---
+
+# Sprint 2 — Comunicação indireta (U3): RabbitMQ + relógio vetorial
+
+**Unidade:** U3 — comunicação indireta · **Tecnologia:** RabbitMQ (AMQP) + Spring AMQP
+**Conceito distribuído:** relógio vetorial, substituindo o de Lamport do Sprint 1
+
+## Parte B — Relógio vetorial (6.4)
+
+### 6.4.1 — Com 10 agências, o que acontece com o tamanho do vetor? É um problema?
+
+Cada mensagem passa a carregar **10 inteiros em vez de 3**. O crescimento é linear no número de agências, e o vetor viaja em *toda* mensagem.
+
+A aritmética do meu corpo de mensagem (`CreditoRemoto` em JSON):
+
+```
+{"idConta":1,"valor":55.00,"vetorEnvio":[4,0,0],"origemAgencia":0}   ~66 bytes, vetor ~9
+com 10 agências:                             [4,0,0,0,0,0,0,0,0,0]   ~87 bytes, vetor ~30
+com 1.000 agências:                                                  vetor > 3 KB
+```
+
+Com 10 agências **não é problema**: 30 bytes de metadado ao lado de um corpo de ~60. Com mil, o metadado fica maior que o dado.
+
+Mas o tamanho é a última coisa a doer. **O que quebra primeiro é a premissa:**
+
+1. **O vetor exige um N conhecido e um índice estável por agência.** `CarimboVetorial.comparar` recusa carimbos de malhas diferentes (teste `comparar vetores de tamanhos diferentes e recusado`). Acrescentar a décima agência muda o tamanho do vetor de todos; não há migração silenciosa.
+2. **Entrar e sair da malha é caro.** Agência nova precisa de uma posição; agência que sai deixa uma posição morta para sempre, porque removê-la reescreveria a história já gravada.
+3. Só depois disso vem o byte.
+
+Quando N cresce ou muda, o caminho não é comprimir o vetor: é trocar a estrutura — *version vectors* podados, *dotted version vectors*, ou *interval tree clocks*, que dividem e juntam identidade sem N fixo.
+
+### 6.4.2 — `V1 = [3, 1, 0]` e `V2 = [3, 2, 0]`
+
+Posição a posição:
+
+| i | V1 | V2 | V1 ≤ V2? |
+|---|---|---|---|
+| 0 | 3 | 3 | sim |
+| 1 | 1 | 2 | sim |
+| 2 | 0 | 0 | sim |
+
+V1 nunca é maior que V2, e V2 é estritamente maior na posição 1. Logo **V1 aconteceu-antes de V2** — há cadeia causal de V1 até V2.
+
+Travado em teste: `compararVetores([3,1,0], [3,2,0]) === 'ANTES'`, em `frontend/src/modelo/causalidade.test.mjs`.
+
+### 6.4.3 — `V1 = [3, 1, 0]` e `V2 = [1, 3, 0]`
+
+| i | V1 | V2 | maior |
+|---|---|---|---|
+| 0 | 3 | 1 | **V1** |
+| 1 | 1 | 3 | **V2** |
+| 2 | 0 | 0 | empate |
+
+Nenhum domina o outro: V1 é maior na posição 0, V2 na posição 1. São **CONCORRENTES**.
+
+Em português: quando o evento de V1 aconteceu, a agência 0 já tinha 3 eventos que a agência 1 desconhecia; e a agência 1 já tinha 3 que a agência 0 desconhecia. Nenhum pôde ter causado o outro, porque a informação de um nunca chegou ao outro.
+
+É o caso que Lamport **não sabe responder**: comprimido num inteiro, "ts(A) < ts(B)" não distingue "A causou B" de "A e B são independentes" (ver 8.3.1).
+
+Travado em teste: `compararVetores([3,1,0], [1,3,0]) === 'CONCORRENTES'`.
+
+---
+
+## Parte C — Publish/Subscribe (7.5)
+
+### 7.5.1 — O que aconteceu quando a Agência 1 voltou?
+
+Execução de **2026-09-28**, pilha em container (`docker compose up --build`). Evidência em `evidencias/sprint2/resiliencia-fila.png`.
+
+**Antes:** conta 0 (ag. 0) = 1000,00 · conta 1 (ag. 1) = 800,00.
+
+**1. Derrubei só a agência 1:** `docker compose stop agencia-1`.
+
+**2. Transferi 55,00 da conta 0 para a conta 1**, com o destino fora do ar:
+
+```
+HTTP/1.1 200
+{"mensagem":"Transferencia publicada para a agencia 1.","local":false,
+ "idOrigem":0,"idDestino":1,"valor":55.00,"saldoOrigem":945.00,"reenvio":false}
+```
+
+A origem debitou sem perguntar nada ao destino — a pré-checagem síncrona do Sprint 1 foi removida de propósito.
+
+**3. A mensagem ficou retida no broker:**
+
+```
+fila-agencia-1 -> messages=1  messages_ready=1  messages_persistent=1  consumers=0
+```
+
+Fila `durable`, corpo `persistent`, nenhum consumidor — gravada em disco no broker, esperando.
+
+**4. Subi a agência 1** (`docker compose start agencia-1`). O log dela, em sequência:
+
+```
+[vetor [0, 3, 0]] CRIAR_CONTA {nomeAluno=Bruno Lima, id=1, saldoInicial=800.00}
+mensagem recebida agencia-0[4, 0, 0] -> creditar 55.00 na conta 1
+[vetor [4, 4, 0]] TRANSFERENCIA_CREDITO_REMOTO {idConta=1, valor=55.00, agenciaOrigem=0, novoSaldo=855.00}
+credito aplicado: conta 1 agora com 855.00
+```
+
+**Depois:** conta 0 = 945,00 · conta 1 = 855,00 · fila `messages=0, consumers=1`.
+
+`945 + 855 = 1800 = 1000 + 800`. **Nada sumiu.**
+
+**A mensagem não se perdeu, e não foi sorte:** ficou numa fila `durable` com corpo `persistent`, que é exatamente para isso. O ack só acontece depois de processar.
+
+**A regra 3 está visível no carimbo.** A agência 1 estava em `[0,3,0]` e recebeu `[4,0,0]`. O máximo posição a posição dá `[4,3,0]`; o `+1` na posição dela dá **`[4,4,0]`** — o carimbo gravado.
+
+**O que observei e não esperava**, e vale mais que o caso feliz: na volta, o consumidor e o semeador de contas de demonstração **correm entre si**. No log a conta 1 foi recriada em `[0,3,0]`, *antes* de a mensagem ser consumida em `[4,4,0]` — deu certo por ordem de chegada. Tivesse a mensagem chegado alguns milissegundos antes, a conta 1 ainda não existiria e o resultado seria `CREDITO_REMOTO_FALHOU` (caso travado no teste `contaInexistenteNaoTravaAFila`).
+
+**Se a mensagem "sumir", não é a mensageria que falhou.** É o estado do destino que foi apagado: as contas vivem em memória e o restart as recria do zero. A fila me protege da agência estar **fora do ar**; não me protege da agência ter **esquecido quem ela era**.
+
+### 7.5.2 — O que melhorou, e o que continua em aberto
+
+**Melhorou: o acoplamento temporal.**
+
+No Sprint 1, creditar era `POST /contas/{id}/creditar-remoto` síncrono. Destino fora do ar = `IOException` = **HTTP 502**, com o débito já aplicado e o crédito perdido. Origem e destino precisavam estar vivos **ao mesmo tempo**.
+
+Agora o mesmo cenário dá **HTTP 200** e o dinheiro chega quando o destino voltar — foi o que a execução acima mediu. A rota `creditar-remoto` foi apagada: creditar virou mensagem.
+
+**O que continua em aberto — a distinção que a pergunta pede:**
+
+> "A mensagem não se perde" é garantia de **transporte**.
+> "O sistema está correto" é garantia de **estado**.
+
+Tenho a primeira, não a segunda. Três buracos, todos observados nos logs:
+
+1. **Não há atomicidade entre debitar e publicar.** Se o broker cair na janela entre os dois passos, o débito fica e o crédito nunca é publicado. Registrado no log real:
+   ```
+   TRANSFERENCIA_FALHOU {erro: "falha ao publicar credito para a agencia 1:
+     java.net.UnknownHostException: broker...", valor: 10.0, idDestino: 1,
+     saldoOrigemAposDebito: 935.0, idOrigem: 0}
+   ```
+   O cliente recebe **503** dizendo isso. O dinheiro sumiu, e o sistema admite.
+
+2. **O destino pode não ter onde aplicar.** Conta em memória + restart = `CREDITO_REMOTO_FALHOU`, com o HTTP 200 já entregue minutos antes.
+
+3. **O recibo não promete o que parecia prometer.** Por isso o texto mudou de *"Transferência concluída"* para *"Transferência publicada para a agência N"*. **200 agora significa "não vai se perder no caminho", não "o dinheiro chegou".** A mudança não é cosmética — é a interface parando de mentir.
+
+Os três são a mesma dívida: **falta transação distribuída**. É o Sprint 4 — 2PC (bloqueante, atômico) ou Saga (não bloqueante, com compensação explícita: um `TRANSFERENCIA_ESTORNADA` quando o crédito falha).
+
+### 7.5.3 — O consumidor processa créditos sem passar por JWT. É problema de segurança?
+
+**A resposta tem duas metades, em direções opostas.**
+
+**Metade 1 — o consumidor está certo em não exigir JWT.** Não é omissão:
+
+- Um JWT identifica uma **pessoa** e, aqui, vale 15 minutos. Uma mensagem pode ficar na fila muito mais que isso. Um token embutido chegaria expirado, e a única saída seria o consumidor **ignorar a expiração** — o mesmo que não ter token, com aparência de ter.
+- O consumidor **não atende requisição nenhuma**. Roda numa thread do container do Spring AMQP, fora do pool do Tomcat: não há `HttpServletRequest`, não há cabeçalho, não há onde o token caberia. Foi por isso que `POST /contas/{id}/creditar-remoto` foi **apagado** no Sprint 2: creditar deixou de ser rota, e o que não passa por rota não passa pelo `FiltroJwt`.
+
+**Metade 2 — o problema real: a fronteira de confiança mudou de lugar, e ainda não a defendi.**
+
+Quem autentica agora é **o broker**. Quem conseguir abrir conexão AMQP e publicar com a routing key `agencia.1.creditar` credita qualquer conta da agência 1, sem passar por filtro. No ambiente de desenvolvimento isso está aberto:
+
+- O broker sobe com `RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}` / senha `guest` — **os defaults estão no `docker-compose.yml` versionado**.
+- As portas **5672** (AMQP) e **15672** (painel) estão publicadas no host.
+- Não há vhost separado, usuário por agência, nem permissão restrita por padrão de routing key.
+
+**Verifiquei em execução** (não deduzi), publicando um crédito diretamente na exchange pelo painel do broker, sem token de usuário e sem debitar nenhuma conta de origem. A agência de destino aplicou o crédito e registrou `TRANSFERENCIA_CREDITO_REMOTO` como se tivesse vindo de outra agência. Ou seja: no estado atual do ambiente de dev, **publicar na exchange é suficiente para alterar saldo** — o `X-Agencia-Token`, que guarda a rota HTTP `/interno`, não protege a mensageria, porque a mensagem nunca toca HTTP.
+
+**Então sim, é problema de segurança — mas não o que a pergunta sugere.** O erro não é "falta JWT no consumidor". É que a autenticação da mensageria ficou nos defaults e um controle que existia (o filtro HTTP) saiu do caminho sem que nada assumisse o lugar dele.
+
+**O que corrigiria**, registrado como dívida conhecida e não implementado neste sprint:
+
+1. Usuário próprio por agência, com permissão de `write` restrita por padrão de routing key (a agência 0 só publica em `agencia.*.creditar`, nenhuma administra a exchange).
+2. Vhost dedicado ao ICEIBank, em vez do `/` padrão.
+3. Credenciais fora do repositório (já é assim no caminho sem Docker: `.env.local` é gitignored).
+4. TLS (`amqps://`) na conexão — o CloudAMQP já obriga; o broker local não.
+5. Não publicar 5672/15672 no host quando não for depurar.
+
+Por que o default é tão permissivo: o RabbitMQ restringe o usuário `guest` a conexões de *loopback*. Em Docker, o loopback do container não é o da máquina — publicar a porta contorna a proteção que o próprio RabbitMQ oferece.
+
+---
+
+## Parte D — Linha do tempo causal (8.3)
+
+### 8.3.1 — O que, no relógio vetorial, torna a comparação confiável?
+
+**A bi-implicação.**
+
+Lamport garante metade: `A -> B  ==>  ts(A) < ts(B)`. A volta é falsa, e é a volta que a análise precisa. Com um inteiro só, `ts(A) < ts(B)` pode ser "A causou B" **ou** "são independentes e o segundo processo já tinha contado mais" — sem como distinguir, porque a informação foi **comprimida num número**. Um contador escalar guarda *quantos* eventos vi e perde *de quem*.
+
+O vetor não comprime: guarda um contador **por agência**. `V[i]` é "quantos eventos da agência *i* eu já conheço". A pergunta vira respondível nos dois sentidos:
+
+> `A -> B` **se e somente se** `V_A[i] <= V_B[i]` em toda posição, e `V_A != V_B`.
+
+Quando nenhum domina o outro, a resposta não é "não sei" — é afirmação positiva: **concorrentes**, provadamente. É essa afirmação que o Sprint 1 não conseguia fazer.
+
+O preço é a ordem **parcial**. Por isso `Relacao` tem quatro valores (`IGUAIS`, `ANTES`, `DEPOIS`, `CONCORRENTES`) e por isso `CarimboVetorial` **não** implementa `Comparable`: `Comparable` promete ordem total (para quaisquer dois, um vem antes), e isso seria mentira em todo par concorrente. Decisão registrada em **10.3.2, no Sprint 1**, antes de existir vetorial nenhum.
+
+### 8.3.2 — Um par concorrente do meu próprio teste. Faz sentido?
+
+Da execução mesclada das três agências:
+
+```
+=== Resumo ===
+eventos: 22 | agencias: 3 | pares concorrentes: 123
+```
+
+Um dos pares apontados:
+
+```
+[agencia-1] CRIAR_CONTA [0, 1, 0]  x  [agencia-2] CRIAR_CONTA [0, 0, 1]
+```
+
+Detalhes: `{"id":1,"nomeAluno":"Bruno Lima"}` na agência 1, `{"id":2,"nomeAluno":"Carla Dias"}` na agência 2.
+
+**Faz sentido, e dá para justificar sem olhar o relógio.** São a abertura da conta do Bruno (ag. 1) e da Carla (ag. 2). Nenhuma mensagem foi trocada entre as agências até ali: a agência 1 não sabia da Carla, a agência 2 não sabia do Bruno. Não há causa e efeito em nenhum sentido — dois caixas atendendo duas pessoas ao mesmo tempo, e o sistema não tem por que saber qual veio primeiro.
+
+Os vetores dizem isso: `[0,1,0]` é "conheço 1 evento meu (ag. 1), nada de mais ninguém"; `[0,0,1]` é "conheço 1 evento meu (ag. 2), nada de mais ninguém". Cada um é maior numa posição diferente — ninguém domina.
+
+**O contraste prova que a análise não carimba tudo como concorrente.** Este par **não aparece** na lista:
+
+```
+[agencia-0] TRANSFERENCIA_DEBITO [11, 0, 0]   e   [agencia-1] TRANSFERENCIA_CREDITO_REMOTO [12, 5, 0]
+```
+
+`[11,0,0] <= [12,5,0]` em toda posição: o débito publicou a mensagem que virou aquele crédito, e a regra 3 fez o destino absorver o vetor da origem. Conferido por `grep` nos dois pares causais da execução — **0 ocorrências**.
+
+É esse par de resultados que o roteiro pede provados juntos, e por isso `MesclarLogsTest` tem um teste para cada lado: um relatório que classificasse tudo como concorrente passaria no primeiro e falharia no segundo.
+
+### 8.3.3 — O(n²) seria problema com milhões de eventos? O que fazer?
+
+**Sim, por dois motivos — o segundo é pior.**
+
+**Tempo.** 22 eventos -> 231 pares. Um milhão de eventos -> ~5x10^11 pares. A 100 milhões de comparações/s, ~**1,4 hora** só de laço, num processo só, tudo em memória.
+
+**Saída.** Os mesmos 22 eventos deram **123 pares concorrentes** — mais linhas de saída que eventos de entrada. E não é acidente da amostra: num sistema distribuído a concorrência é a **regra**, não a exceção, então a maioria dos pares é concorrente por construção. Com um milhão de eventos, a lista de concorrentes não é relatório — é um despejo ordens de grandeza maior que o log. (Foi por isso que o resumo passou a trazer só a contagem: o número cabe num print, a lista não.)
+
+**O que fazer, em ordem de esforço:**
+
+1. **Parar de perguntar "todos os pares".** A pergunta útil quase nunca é essa — é *"o que aconteceu-antes deste evento?"*. Isso é **O(n)** por evento consultado, comparando cada vetor com um só, sem materializar par nenhum.
+2. **Podar pela janela.** Causalidade interessa em janelas curtas: uma transferência, uma sessão, uma conta. Comparar só dentro de uma janela de tempo ou de um agregado derruba o *n* de milhões para dezenas.
+3. **Indexar por antecedência conhecida.** Guardar, junto de cada evento, o vetor que o antecede diretamente evita recomparar do zero — o índice paga o custo uma vez, na escrita, em vez de a cada análise.
+
+---
+
+## Funcionalidade adicional do Sprint 2 — deduplicação de créditos
+
+O roteiro pede **uma** funcionalidade além do previsto. Escolhi a que corrige uma **incorreção real**, não a que só enfeita.
+
+**O problema.** A entrega do RabbitMQ é *at-least-once*, não *exactly-once*. Se o ack se perde no caminho de volta — rede, ou o consumidor morrendo entre aplicar o crédito e confirmar — o broker **reentrega** uma mensagem já processada. Sem defesa, o crédito entra duas vezes e ninguém percebe: o cliente só vê dinheiro a mais.
+
+**O teste mede o estrago antes do conserto** (`reentregaNaoCreditaDuasVezes`): conta com 800, mensagem de 40 entregue duas vezes, saldo observado **880** — vermelho. É a corrida de verdade, não uma hipótese.
+
+**A identidade já existia.** O par `(origemAgencia, vetorEnvio)` identifica cada mensagem de forma única: o vetor de uma agência nunca repete, porque cada envio incrementa a posição dela. `CreditoRemoto.identidade()` já devolvia isso desde a Parte B. Não precisei inventar id novo nem mudar o formato da mensagem.
+
+**A defesa** (`RegistroDeMensagensProcessadas`): um `Set` de identidades já vistas. `Set.add` marca e responde numa operação só, atômica — perguntar e marcar em chamadas separadas reabriria a corrida, e o container do Spring AMQP usa várias threads.
+
+**A reentrega não some calada:** vira `CREDITO_REMOTO_DUPLICADO` no log, com o vetor sincronizado do mesmo jeito (receber é um evento, e o `max` da regra 3 é idempotente). O que não se repete é o **dinheiro**. Depois disso o saldo fica em 840, e uma segunda entrega da mesma mensagem não mexe mais nele (`reentregaNaoCreditaDuasVezes`). Mensagens **distintas** da mesma origem continuam passando as duas (`mensagensDistintasNaoSaoConfundidas`) — a defesa não é "uma mensagem por agência".
+
+**Limite assumido, e é o mesmo limite do resto do sprint:** a memória é do processo. Reentrega que atravesse um restart ainda credita duas vezes, pelo mesmo motivo que as contas somem no restart. Estado durável é Sprint 4 — e resolve os dois de uma vez.
+
+**No frontend**, de quebra: evento que não move dinheiro deixou de aparecer com sinal de débito. `CREDITO_REMOTO_DUPLICADO` vinha como *"− 40,00"*, afirmando na tela uma saída que não existiu. Agora esses eventos levam o sinal neutro `·` (`sinalDoEvento`, com teste).
+
+
 ## Índice de evidências
 
 Os 18 prints de `evidencias/sprint1/`, e o que cada um prova. Todos saíram da **mesma
@@ -355,9 +611,23 @@ Lamport são contínuos entre eles.
 |---|---|
 | `historico-conta.png` | As **três** de uma vez: *EXTRA 1* histórico da conta 0 (Lamport 11 → 5); *EXTRA 2* idempotência (`reenvio: false` → `reenvio: true` sem debitar de novo, e **409** para a mesma chave com outro valor); *EXTRA 3* extrato consolidado `total: 970.00` com `consistente: true` |
 
+
+### Sprint 2 — RabbitMQ e relógio vetorial
+
+Os prints de `evidencias/sprint2/`. A execução é a de **28/09/2026**, com a pilha em
+container (`docker compose up --build`) — por isso os carimbos aqui são **vetoriais**,
+não mais um inteiro de Lamport.
+
+| Print | O que prova |
+|---|---|
+| `transferencia-assincrona.png` | Transferência entre agências completando via fila: o débito na origem, o `TRANSFERENCIA_CREDITO_REMOTO` no destino, e o carimbo do destino absorvendo o vetor da origem pela regra 3 (ex.: destino em `[0,3,0]` recebe `[4,0,0]` → grava `[4,4,0]`) |
+| `resiliencia-fila.png` | O cenário 7.5.1 inteiro: agência 1 derrubada, transferência publicada com **HTTP 200** e `fila-agencia-1 messages=1 consumers=0`; agência 1 volta, consome, e `945 + 855 = 1800` fecha com o estado inicial |
+| `linha-do-tempo-causal.png` | A saída do `--mesclar-logs`: `eventos: 22 | agencias: 3 | pares concorrentes: 123`, com ao menos um par concorrente entre agências diferentes na lista, e a ausência do par causal débito→crédito |
+| `deduplicacao.png` | A funcionalidade adicional: a mesma mensagem reentregue, o saldo creditado **uma vez só**, e o `CREDITO_REMOTO_DUPLICADO` registrado na segunda entrega |
+
 ---
 
-## Declaração de uso de IA
+## Declaração de uso de IA — Sprint 1
 
 Eu, **gabriel silveira**, RA **1466316**, declaro que utilizei o Claude (Anthropic) como
 ferramenta de apoio ao longo deste sprint, nos termos abaixo.
@@ -373,5 +643,24 @@ Sou capaz de explicar e defender qualquer trecho entregue. As decisões registra
 
 Declaro que o conteúdo entregue é de minha autoria e responsabilidade, e que o uso da
 ferramenta está descrito acima sem omissão.
+
+**gabriel silveira** — RA 1466316 — PUC Minas / ICEI
+
+---
+
+## Declaração de uso de IA — Sprint 2
+
+Eu, **gabriel silveira**, RA **1466316**, declaro que no Sprint 2 utilizei o Claude (Anthropic) como ferramenta de apoio, nos termos abaixo.
+
+- **Implementação sob orientação, sempre em TDD.** O relógio vetorial, o consumidor de mensagens, a análise causal e a deduplicação foram construídos com teste vermelho antes do verde — a IA escreveu código seguindo decisões que eu havia tomado antes: o carimbo guardando `List<Integer>` e não `int[]`, a ausência de `Comparable`, a remoção da pré-checagem síncrona do destino, a mensagem carregando o vetor inteiro (regra 2).
+- **Verificação ao vivo, não presumida.** As afirmações deste documento sobre o Sprint 2 foram medidas contra a pilha em execução: o cenário de resiliência (7.5.1) foi reproduzido derrubando e subindo a agência 1 de verdade; a fila retendo a mensagem foi lida no painel do broker; a limitação de segurança da mensageria (7.5.3) foi confirmada por execução, não deduzida.
+- **Revisão crítica**, que apontou a fragilidade da autenticação da mensageria descrita em 7.5.3 — a fronteira de confiança que passou do filtro HTTP para o broker sem defesa equivalente.
+- **Revisão de texto** deste documento.
+
+Sou capaz de explicar e defender qualquer trecho entregue no Sprint 2 — em particular por que o vetorial substituiu Lamport e a interface `sealed` saiu junto, por que o consumidor não exige JWT, por que a falha encolheu e mudou de lugar (do 502 síncrono para o 503 de broker fora do ar), e por que a deduplicação corrige uma incorreção real da entrega *at-least-once*.
+
+**Limitação documentada por escolha própria:** a autenticação da mensageria, no ambiente de desenvolvimento, ainda está nos defaults do broker (7.5.3). Optei por registrar, com evidência, em vez de omitir.
+
+Declaro que o conteúdo entregue é de minha autoria e responsabilidade, e que o uso da ferramenta está descrito acima sem omissão.
 
 **gabriel silveira** — RA 1466316 — PUC Minas / ICEI
