@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { paresConcorrentes } from '../modelo/causalidade.js'
 import { hora, vetor } from '../modelo/formato.js'
 import { Alerta, Blueprint, Tag } from './componentes/Base.jsx'
 
@@ -17,6 +18,10 @@ export default function LinhaDoTempo({ eventos, alerta, aoGerarConcorrentes }) {
     () => [...eventos].sort((a, b) => a.horaParede.localeCompare(b.horaParede)),
     [eventos])
 
+  // PARTE D. A analise nao vive aqui dentro: mora em modelo/causalidade.js, que e
+  // funcao pura e tem teste. A tela so exibe o que ela devolve.
+  const concorrentes = useMemo(() => paresConcorrentes(ordenados), [ordenados])
+
   return (
     <>
       <Alerta alerta={alerta} />
@@ -34,6 +39,9 @@ export default function LinhaDoTempo({ eventos, alerta, aoGerarConcorrentes }) {
         margin: 'var(--space-5) 0' }}>
         <Tag tipo="neutral">{ordenados.length} eventos</Tag>
         <Tag tipo="neutral">vetor de {ordenados[0]?.timestampVetorial?.length ?? 3} posições</Tag>
+        <Tag tipo={concorrentes.length > 0 ? 'accent' : 'neutral'}>
+          {concorrentes.length} pares concorrentes
+        </Tag>
         <button className="btn btn-secondary" style={{ marginLeft: 'auto' }} onClick={aoGerarConcorrentes}>
           Gerar eventos concorrentes
         </button>
@@ -62,6 +70,52 @@ export default function LinhaDoTempo({ eventos, alerta, aoGerarConcorrentes }) {
           ))}
         </tbody>
       </table>
+
+      <Blueprint style={{ padding: 'var(--space-6)', marginTop: 'var(--space-7)' }}>
+        <div className="card-kicker">Parte D — pares concorrentes (agências diferentes)</div>
+        <div style={{ fontFamily: 'var(--font-heading)', fontSize: 25, margin: 'var(--space-3) 0' }}>
+          nenhum dos dois vetores domina o outro
+        </div>
+        <p style={{ maxWidth: '78ch', color: 'var(--color-neutral-700)', fontSize: 13 }}>
+          Dois eventos são <strong>concorrentes</strong> quando cada um sabe de algo que o
+          outro não sabe — não existe cadeia causal entre eles em nenhum sentido. Pares da
+          mesma agência nunca aparecem aqui: dentro de uma agência há um relógio só, e ele
+          sempre incrementa. Uma transferência entre agências também não aparece, e é esse
+          o ponto: pela regra 3 o destino absorveu o vetor da origem, então há causalidade.
+        </p>
+        {concorrentes.length === 0 ? (
+          <p className="text-muted" style={{ fontSize: 13 }}>
+            Nenhum par concorrente entre estes eventos. Use “Gerar eventos concorrentes” para
+            disparar operações independentes em agências diferentes.
+          </p>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr><th>Evento em uma agência</th><th>Evento na outra</th></tr>
+            </thead>
+            <tbody>
+              {concorrentes.map(({ primeiro, segundo }, i) => (
+                <tr key={i}>
+                  <td>
+                    <Tag tipo="neutral">AG&nbsp;{primeiro.agencia.replace('agencia-', '')}</Tag>{' '}
+                    {primeiro.tipo}{' '}
+                    <span className="num" style={{ color: 'var(--color-accent-700)' }}>
+                      {vetor(primeiro.timestampVetorial)}
+                    </span>
+                  </td>
+                  <td>
+                    <Tag tipo="neutral">AG&nbsp;{segundo.agencia.replace('agencia-', '')}</Tag>{' '}
+                    {segundo.tipo}{' '}
+                    <span className="num" style={{ color: 'var(--color-accent-700)' }}>
+                      {vetor(segundo.timestampVetorial)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Blueprint>
 
       <Blueprint style={{ padding: 'var(--space-6)', marginTop: 'var(--space-7)' }}>
         <div className="card-kicker">Regra 3 verificada nos créditos remotos</div>

@@ -1,5 +1,7 @@
 package br.pucminas.iceibank.ferramentas;
 
+import br.pucminas.iceibank.modelo.relogio.CarimboVetorial;
+import br.pucminas.iceibank.modelo.relogio.Relacao;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -66,11 +68,71 @@ public final class MesclarLogs {
                     evento.get("detalhes")));
         }
 
+        List<String> concorrentes = paresConcorrentes(eventos);
+        saida.append("\n=== Pares de eventos CONCORRENTES (agencias diferentes) ===\n");
+        if (concorrentes.isEmpty()) {
+            // Lista vazia nao e defeito: e o resultado de todo evento estar numa cadeia
+            // causal. Dizer isso em voz alta evita ler o silencio como bug.
+            saida.append("(nenhum par concorrente nesta execucao - gere operacoes independentes"
+                    + " em agencias diferentes e rode de novo)\n");
+        }
+        for (String par : concorrentes) {
+            saida.append(par).append('\n');
+        }
+
         saida.append("\n=== Resumo ===\n");
         saida.append("eventos: ").append(eventos.size())
                 .append(" | agencias: ").append(eventos.stream().map(e -> e.get("agencia")).distinct().count())
                 .append('\n');
         return saida.toString();
+    }
+
+    /**
+     * PARTE D — os pares comprovadamente concorrentes, entre agencias DIFERENTES.
+     *
+     * Pares da MESMA agencia sao pulados de proposito: dentro de uma agencia o
+     * relogio e um so e sempre incrementa, entao dois eventos dela nunca podem ser
+     * concorrentes. Listar isso seria ruido garantido.
+     *
+     * O laco e O(n^2) — compara todos os pares. E o que o roteiro pede e o que a
+     * pergunta 8.3.3 problematiza: com milhoes de eventos isso nao se sustenta.
+     */
+    static List<String> paresConcorrentes(List<Map<String, Object>> eventos) {
+        List<String> pares = new ArrayList<>();
+        for (int i = 0; i < eventos.size(); i++) {
+            for (int j = i + 1; j < eventos.size(); j++) {
+                Map<String, Object> primeiro = eventos.get(i);
+                Map<String, Object> segundo = eventos.get(j);
+                if (mesmaAgencia(primeiro, segundo) || !saoConcorrentes(primeiro, segundo)) {
+                    continue;
+                }
+                pares.add(descrever(primeiro) + "  x  " + descrever(segundo));
+            }
+        }
+        return pares;
+    }
+
+    private static boolean mesmaAgencia(Map<String, Object> primeiro, Map<String, Object> segundo) {
+        return String.valueOf(primeiro.get("agencia")).equals(String.valueOf(segundo.get("agencia")));
+    }
+
+    /**
+     * Linha sem vetor (log truncado no meio de uma escrita) ou de malha com outro
+     * numero de agencias nao da para comparar. Nao afirmamos concorrencia sem vetor:
+     * "nao sei" e diferente de "sao independentes".
+     */
+    private static boolean saoConcorrentes(Map<String, Object> primeiro, Map<String, Object> segundo) {
+        List<Integer> umVetor = vetorDe(primeiro);
+        List<Integer> outroVetor = vetorDe(segundo);
+        if (umVetor.isEmpty() || umVetor.size() != outroVetor.size()) {
+            return false;
+        }
+        return CarimboVetorial.comparar(new CarimboVetorial(umVetor), new CarimboVetorial(outroVetor))
+                == Relacao.CONCORRENTES;
+    }
+
+    private static String descrever(Map<String, Object> evento) {
+        return "[" + evento.get("agencia") + "] " + evento.get("tipo") + " " + vetorDe(evento);
     }
 
     /** O vetor da linha, no formato [a, b, c]. Linha sem o campo aparece como [?]. */
