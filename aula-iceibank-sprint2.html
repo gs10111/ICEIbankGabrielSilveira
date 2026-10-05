@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:#f1f4f3;color:#14201d;font:15px/1.6 system-ui,-apple-system,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<title>Defesa do ICEIBank Sprint 2</title>
+<meta name="description" content="Guia de estudo para defender o ICEIBank na banca">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /* Layout: sidebar fixa de navegação + uma seção visível por vez (estilo guia).
+     Identidade: razão contábil/sistemas — papel frio, tinta petróleo, mono para dados. */
+  :root {
+    --paper:#f1f4f3; --surface:#ffffff; --surface-2:#f7faf9;
+    --ink:#14201d; --muted:#586b65; --faint:#8296908f;
+    --line:#dce3e0; --line-strong:#c2cdc8;
+    --accent:#0d7a64; --accent-ink:#0b5e4d; --accent-soft:#dcefe9;
+    --ok:#1f7a4d; --warn:#9c6a12; --warn-soft:#f6ecd4; --crit:#b23a28; --crit-soft:#f6ded8;
+    --s1:#8a5a1f; --s1-soft:#f1e6d4;
+    color-scheme:light;
+    --font-display:"Spectral",Georgia,serif;
+    --font-body:"IBM Plex Sans",system-ui,sans-serif;
+    --font-mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --paper:#0c1310; --surface:#121b17; --surface-2:#0f1814;
+    --ink:#e6efeb; --muted:#93a39d; --faint:#6b7d7733;
+    --line:#243029; --line-strong:#33443b;
+    --accent:#45cba9; --accent-ink:#6fdcc0; --accent-soft:#143029;
+    --ok:#4cbb81; --warn:#d7a848; --warn-soft:#2c2616; --crit:#e4836f; --crit-soft:#331c18;
+    --s1:#d6a865; --s1-soft:#2a2213;
+    color-scheme:dark;
+  }}
+  :root[data-theme="dark"]{
+    --paper:#0c1310; --surface:#121b17; --surface-2:#0f1814;
+    --ink:#e6efeb; --muted:#93a39d; --faint:#6b7d7733;
+    --line:#243029; --line-strong:#33443b;
+    --accent:#45cba9; --accent-ink:#6fdcc0; --accent-soft:#143029;
+    --ok:#4cbb81; --warn:#d7a848; --warn-soft:#2c2616; --crit:#e4836f; --crit-soft:#331c18;
+    --s1:#d6a865; --s1-soft:#2a2213;
+    color-scheme:dark;
+  }
+
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--font-body);
+    font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{font-family:var(--font-display);text-wrap:balance;line-height:1.15;margin:0}
+  code,kbd,.mono{font-family:var(--font-mono)}
+  a{color:var(--accent-ink);text-underline-offset:2px}
+
+  /* shell */
+  .shell{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100%}
+  @media (max-width:860px){ .shell{grid-template-columns:1fr} }
+
+  /* sidebar */
+  .side{border-right:1px solid var(--line);background:var(--surface);
+    position:sticky;top:env(safe-area-inset-top,0px);align-self:start;
+    height:100vh;overflow-y:auto;padding:22px 16px 28px}
+  @media (max-width:860px){ .side{position:static;height:auto;border-right:0;
+    border-bottom:1px solid var(--line)} }
+  .brand{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+  .brand .mark{font-family:var(--font-display);font-weight:600;font-size:20px;letter-spacing:.2px}
+  .brand .tag{font-family:var(--font-mono);font-size:11px;color:var(--accent-ink);
+    background:var(--accent-soft);padding:2px 7px;border-radius:999px}
+  .brand-sub{color:var(--muted);font-size:12.5px;margin:2px 0 18px}
+  nav.toc{display:flex;flex-direction:column;gap:2px}
+  @media (max-width:860px){ nav.toc{flex-flow:row wrap} }
+  .toc button{all:unset;cursor:pointer;display:flex;gap:10px;align-items:center;
+    padding:9px 11px;border-radius:9px;color:var(--muted);font-size:13.5px;font-weight:500}
+  .toc button:hover{background:var(--surface-2);color:var(--ink)}
+  .toc button[aria-current="true"]{background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+  .toc button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .toc .n{font-family:var(--font-mono);font-size:11px;opacity:.7;width:16px;text-align:right}
+  .side-foot{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);
+    color:var(--muted);font-size:11.5px;line-height:1.5}
+  .themebtn{all:unset;cursor:pointer;margin-top:12px;font-size:12px;color:var(--muted);
+    border:1px solid var(--line);border-radius:8px;padding:5px 10px;display:inline-flex;gap:6px}
+  .themebtn:hover{border-color:var(--line-strong);color:var(--ink)}
+  .themebtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* main */
+  main{padding:40px clamp(18px,5vw,64px) 90px;max-width:900px;min-width:0}
+  section[data-view]{display:none}
+  section[data-view].on{display:block;animation:fade .25s ease}
+  @media (prefers-reduced-motion:reduce){ section[data-view].on{animation:none} }
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .eyebrow{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--accent-ink)}
+  h1.title{font-size:clamp(28px,5vw,40px);font-weight:600;margin:10px 0 0}
+  .lede{color:var(--muted);font-size:17px;margin:14px 0 0;max-width:62ch}
+  h2{font-size:23px;font-weight:600;margin:40px 0 0;padding-top:8px}
+  h3{font-size:17px;font-weight:600;margin:26px 0 0}
+  p{margin:12px 0 0;max-width:66ch}
+  ul,ol{margin:12px 0 0;max-width:66ch;padding-left:22px}
+  li{margin:5px 0}
+  strong{font-weight:600}
+  .divide{height:1px;background:var(--line);margin:34px 0 0}
+
+  /* pieces */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin-top:18px}
+  .card.flush{padding:0;overflow:hidden}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:640px){ .grid2{grid-template-columns:1fr} }
+
+  .kv{font-family:var(--font-mono);font-size:12.5px;color:var(--muted)}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);
+    font-size:11px;font-weight:500;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .pill.ok{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+  .pill.warn{background:var(--warn-soft);color:var(--warn)}
+  .pill.crit{background:var(--crit-soft);color:var(--crit)}
+  .pill.acc{background:var(--accent-soft);color:var(--accent-ink)}
+
+  pre{font-family:var(--font-mono);font-size:12.5px;line-height:1.55;background:var(--surface-2);
+    border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-top:14px;
+    overflow-x:auto;white-space:pre}
+  pre b{color:var(--accent-ink);font-weight:600}
+  pre .c{color:var(--muted)}
+  pre .r{color:var(--crit)}
+  pre .g{color:var(--ok)}
+  :not(pre)>code{font-size:.9em;background:var(--surface-2);border:1px solid var(--line);
+    padding:1px 5px;border-radius:5px}
+
+  table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13.5px}
+  .tablewrap{overflow-x:auto;margin-top:16px}
+  .tablewrap table{margin-top:0}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--muted);font-weight:500}
+  td.s1{color:var(--s1)}
+  tbody tr:last-child td{border-bottom:0}
+  .num{font-variant-numeric:tabular-nums;font-family:var(--font-mono)}
+
+  .callout{border-left:3px solid var(--accent);background:var(--surface-2);
+    border-radius:0 10px 10px 0;padding:14px 18px;margin-top:18px}
+  .callout.warn{border-left-color:var(--warn)}
+  .callout.crit{border-left-color:var(--crit)}
+  .callout .lab{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted)}
+  .callout p{margin-top:5px}
+
+  figure{margin:22px 0 0}
+  figure svg{display:block;width:100%;height:auto;max-width:100%}
+  figcaption{color:var(--muted);font-size:12.5px;margin-top:10px;max-width:70ch}
+  .figwrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:20px 20px 8px}
+
+  .steps{counter-reset:step;margin-top:18px;display:flex;flex-direction:column;gap:12px}
+  .step{display:grid;grid-template-columns:34px 1fr;gap:14px;align-items:start}
+  .step .dot{counter-increment:step;width:30px;height:30px;border-radius:50%;
+    background:var(--accent-soft);color:var(--accent-ink);font-family:var(--font-mono);
+    font-size:13px;font-weight:600;display:grid;place-items:center}
+  .step .dot::before{content:counter(step)}
+  .step h4{font-size:15px;font-weight:600}
+  .step p{margin-top:3px;font-size:14px}
+
+  details.qa{border:1px solid var(--line);border-radius:11px;margin-top:10px;background:var(--surface);
+    overflow:hidden}
+  details.qa summary{cursor:pointer;padding:13px 16px;font-weight:600;font-size:14.5px;
+    list-style:none;display:flex;gap:10px;align-items:baseline}
+  details.qa summary::-webkit-details-marker{display:none}
+  details.qa summary .q{color:var(--accent-ink);font-family:var(--font-mono);font-size:12px}
+  details.qa[open] summary{border-bottom:1px solid var(--line)}
+  details.qa .body{padding:4px 16px 16px}
+  details.qa .body p{font-size:14px}
+  summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+  .jwt{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;font-family:var(--font-mono);font-size:12px}
+  .jwt span{padding:5px 10px;border-radius:7px}
+  .jwt .h{background:var(--crit-soft);color:var(--crit)}
+  .jwt .p{background:var(--accent-soft);color:var(--accent-ink)}
+  .jwt .s{background:var(--warn-soft);color:var(--warn)}
+  .jwt .dot{color:var(--muted);align-self:center}
+
+  .footer-nav{display:flex;justify-content:space-between;gap:12px;margin-top:46px;
+    padding-top:20px;border-top:1px solid var(--line)}
+  .footer-nav button{all:unset;cursor:pointer;color:var(--accent-ink);font-weight:600;font-size:14px;
+    display:inline-flex;gap:7px;align-items:center;padding:6px 2px}
+  .footer-nav button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  .footer-nav .lab{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted);display:block}
+  .skip{position:absolute;left:-999px}
+  .skip:focus{left:12px;top:12px;background:var(--surface);padding:8px 12px;border-radius:8px;
+    border:1px solid var(--line);z-index:9}
+</style>
+
+<a href="#overview" class="skip">Pular para o conteúdo</a>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <span class="mark">ICEIBank</span>
+      <span class="tag">Sprint 2</span>
+    </div>
+    <div class="brand-sub">Guia de defesa · RA 1466316 · PUC Minas / ICEI</div>
+    <nav class="toc" aria-label="Seções">
+      <button data-go="overview"><span class="n">01</span> Visão geral</button>
+      <button data-go="mudanca"><span class="n">02</span> Sprint 1 → Sprint 2</button>
+      <button data-go="auth"><span class="n">03</span> Autenticação a fundo</button>
+      <button data-go="vetor"><span class="n">04</span> Relógio vetorial</button>
+      <button data-go="entrega"><span class="n">05</span> O que entreguei</button>
+      <button data-go="defesa"><span class="n">06</span> Banca: perguntas</button>
+      <button data-go="rodar"><span class="n">07</span> Como rodar</button>
+    </nav>
+    <button class="themebtn" id="theme">Tema: <span id="themelab">sistema</span></button>
+    <div class="side-foot">
+      Backend: Java 21 + Spring Boot · Frontend: React + Vite · Broker: RabbitMQ.
+      131 testes verdes. Partição: a conta <span class="mono">N</span> pertence à agência
+      <span class="mono">N % 3</span>.
+    </div>
+  </aside>
+
+  <main id="main">
+
+    <!-- 01 ───────────────────────────────── -->
+    <section data-view="overview" class="on">
+      <div class="eyebrow">Visão geral</div>
+      <h1 class="title">Um banco em três agências que conversam por mensagens</h1>
+      <p class="lede">O ICEIBank é um banco distribuído em 3 agências. A grande mudança do
+        Sprint 2 cabe numa frase: a conversa entre agências deixou de ser uma <em>chamada
+        direta</em> e virou uma <em>mensagem publicada numa fila</em>. Tudo o mais decorre disso.</p>
+
+      <div class="card">
+        <h3>As três agências são o mesmo programa</h3>
+        <p>Não são três projetos. É <strong>o mesmo <span class="mono">.jar</span></strong> iniciado três
+          vezes, só mudando a variável <code>AGENCIA_ID</code> — portas 4016, 4017 e 4018. Isso é o
+          12-Factor III (configuração no ambiente, não no código). A conta decide sozinha de quem é:
+          a conta <span class="mono">N</span> pertence à agência <span class="mono">N % 3</span>.</p>
+        <pre><span class="c"># a MESMA imagem, três identidades</span>
+AGENCIA_ID=<b>0</b> SERVER_PORT=4016 java -jar iceibank-agencia-1.0.0.jar
+AGENCIA_ID=<b>1</b> SERVER_PORT=4017 java -jar iceibank-agencia-1.0.0.jar
+AGENCIA_ID=<b>2</b> SERVER_PORT=4018 java -jar iceibank-agencia-1.0.0.jar</pre>
+      </div>
+
+      <h2>O que muda do Sprint 1 para o Sprint 2</h2>
+      <p>Cinco mudanças, e todas são consequência de trocar a chamada síncrona pela fila.
+        Cada uma tem a sua defesa na seção 2.</p>
+      <div class="tablewrap">
+      <table>
+        <thead><tr><th>Tema</th><th>Sprint 1</th><th>Sprint 2</th></tr></thead>
+        <tbody>
+          <tr><td>Relógio lógico</td><td class="s1">Lamport — um inteiro</td><td>Vetorial — um contador por agência</td></tr>
+          <tr><td>Entre agências</td><td class="s1">REST síncrono (<span class="mono">POST /creditar-remoto</span>)</td><td>Mensagem numa exchange do RabbitMQ</td></tr>
+          <tr><td>Destino fora do ar</td><td class="s1">HTTP 502, crédito perdido</td><td>HTTP 200, mensagem espera na fila</td></tr>
+          <tr><td>Pré-checagem do destino</td><td class="s1">Sim, antes de debitar</td><td>Removida (reintroduziria acoplamento)</td></tr>
+          <tr><td>Recibo</td><td class="s1">"Transferência concluída"</td><td>"Transferência publicada para a agência N"</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="callout">
+        <div class="lab">A frase para a banca</div>
+        <p>“No Sprint 1, origem e destino precisavam estar vivos <strong>ao mesmo tempo</strong>.
+          No Sprint 2, não — a mensagem fica guardada no broker até o destino voltar. Eu troquei
+          um acoplamento <strong>temporal</strong> por um desacoplamento via fila.”</p>
+      </div>
+
+      <div class="footer-nav">
+        <span></span>
+        <button data-go="mudanca"><span><span class="lab">Próximo</span>Sprint 1 → Sprint 2</span> →</button>
+      </div>
+    </section>
+
+    <!-- 02 ───────────────────────────────── -->
+    <section data-view="mudanca">
+      <div class="eyebrow">A mudança central</div>
+      <h1 class="title">Da chamada direta para a fila</h1>
+      <p class="lede">O desenho abaixo é a prova visual do sprint inteiro. É a única imagem que
+        você precisa saber reproduzir no quadro.</p>
+
+      <figure class="figwrap">
+        <svg viewBox="0 0 720 300" role="img" aria-label="Comparação: no Sprint 1 a agência 0 chama a agência 1 por REST síncrono e recebe 502 se ela estiver fora do ar; no Sprint 2 a agência 0 publica numa fila que retém a mensagem até a agência 1 voltar.">
+          <!-- SPRINT 1 -->
+          <text x="24" y="28" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--s1)" font-weight="600">SPRINT 1 — chamada síncrona</text>
+          <rect x="24" y="44" width="150" height="54" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="99" y="68" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" fill="currentColor">Agência 0</text>
+          <text x="99" y="85" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)">debita</text>
+
+          <rect x="546" y="44" width="150" height="54" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="621" y="68" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" fill="currentColor">Agência 1</text>
+          <text x="621" y="85" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)">credita</text>
+
+          <line x1="174" y1="64" x2="540" y2="64" stroke="var(--s1)" stroke-width="1.6" marker-end="url(#a1)"/>
+          <text x="357" y="56" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--s1)">POST /creditar-remoto  (espera a resposta)</text>
+          <line x1="540" y1="82" x2="190" y2="82" stroke="var(--s1)" stroke-width="1.3" stroke-dasharray="4 4" marker-end="url(#a1b)"/>
+          <text x="357" y="97" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--crit)">✕ se fora do ar → 502, crédito perdido</text>
+
+          <!-- divider -->
+          <line x1="24" y1="150" x2="696" y2="150" stroke="var(--line-strong)" stroke-width="1"/>
+
+          <!-- SPRINT 2 -->
+          <text x="24" y="182" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--accent)" font-weight="600">SPRINT 2 — mensagem na fila</text>
+          <rect x="24" y="198" width="150" height="54" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="99" y="222" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" fill="currentColor">Agência 0</text>
+          <text x="99" y="239" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)">debita + publica</text>
+
+          <rect x="300" y="195" width="140" height="60" rx="10" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="370" y="219" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="var(--accent-ink)">RabbitMQ</text>
+          <text x="370" y="236" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--accent-ink)">fila durável</text>
+
+          <rect x="546" y="198" width="150" height="54" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="621" y="222" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" fill="currentColor">Agência 1</text>
+          <text x="621" y="239" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)">consome quando volta</text>
+
+          <line x1="174" y1="225" x2="296" y2="225" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#a2)"/>
+          <text x="235" y="217" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--accent-ink)">publica</text>
+          <line x1="440" y1="225" x2="542" y2="225" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#a2)"/>
+          <text x="491" y="217" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--accent-ink)">entrega</text>
+          <text x="370" y="278" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--ok)">✓ retém a mensagem se a agência 1 estiver fora</text>
+
+          <defs>
+            <marker id="a1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--s1)"/></marker>
+            <marker id="a1b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--s1)"/></marker>
+            <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--accent)"/></marker>
+          </defs>
+        </svg>
+        <figcaption>A seta que some é a resposta síncrona. No Sprint 1, se a agência 1 não respondesse,
+          o crédito morria com um 502. No Sprint 2, a agência 0 fala com a <strong>fila</strong>, nunca
+          direto com a agência 1 — e a fila guarda a mensagem (<span class="mono">durable</span> +
+          persistente) até alguém consumir.</figcaption>
+      </figure>
+
+      <h2>As três regras do relógio, no caminho da transferência</h2>
+      <p>Toda transferência entre agências encosta nas três regras do vetorial. Vale decorar
+        onde cada uma entra, porque a banca pergunta “onde está a regra 2?”.</p>
+      <div class="steps">
+        <div class="step"><div class="dot"></div><div>
+          <h4>Débito na origem — regra 1 (evento local)</h4>
+          <p>A agência 0 saca da conta e carimba um evento local: incrementa só a própria posição.</p></div></div>
+        <div class="step"><div class="dot"></div><div>
+          <h4>Publicação — regra 2 (ao enviar)</h4>
+          <p>Antes de publicar, a origem incrementa a própria posição e anexa o <strong>vetor inteiro</strong>
+            à mensagem — não só a posição dela. Sem as outras posições, o destino não aprenderia o que a
+            origem já sabia das demais agências.</p></div></div>
+        <div class="step"><div class="dot"></div><div>
+          <h4>Consumo no destino — regra 3 (ao receber)</h4>
+          <p>A agência 1 faz o <strong>máximo posição a posição</strong> entre o seu vetor e o recebido, e
+            então soma 1 na própria posição. Receber já é um evento.</p></div></div>
+      </div>
+
+      <h3>A falha não sumiu — encolheu e mudou de lugar</h3>
+      <p>Essa é a defesa mais madura do sprint. O 502 do Sprint 1 (destino fora do ar) desapareceu,
+        porque a fila absorve isso. O que sobrou só acontece se o <strong>broker</strong> cair: o débito
+        já foi aplicado e o crédito não chegou nem a ser publicado.</p>
+      <pre><span class="c"># log real: broker inacessível no meio da transferência</span>
+TRANSFERENCIA_DEBITO    {idOrigem:0, idDestino:1, valor:10.0}
+<span class="r">TRANSFERENCIA_FALHOU</span>    {erro:"falha ao publicar...UnknownHostException: broker",
+                         saldoOrigemAposDebito:935.0}   <span class="c">→ HTTP 503</span></pre>
+      <p>O recibo mudou de texto por causa disso. <strong>200 agora significa “a mensagem não vai
+        se perder”, não “o dinheiro chegou”.</strong> É a interface deixando de mentir. Resolver os dois
+        lados de vez é transação distribuída — o Sprint 4 (2PC ou Saga).</p>
+
+      <div class="footer-nav">
+        <button data-go="overview">← <span><span class="lab">Anterior</span>Visão geral</span></button>
+        <button data-go="auth"><span><span class="lab">Próximo</span>Autenticação a fundo</span> →</button>
+      </div>
+    </section>
+
+    <!-- 03 ───────────────────────────────── -->
+    <section data-view="auth">
+      <div class="eyebrow">O ponto que você quer dominar</div>
+      <h1 class="title">Autenticação: onde começa, por onde passa, onde termina</h1>
+      <p class="lede">Se decorar uma frase só, decore esta: <strong>são duas autenticações, com
+        propósitos diferentes.</strong> É a pergunta que derruba a maioria.</p>
+
+      <div class="grid2">
+        <div class="card">
+          <span class="pill acc">JWT</span>
+          <h3 style="margin-top:12px">Identifica uma pessoa</h3>
+          <p style="font-size:14px">O titular da conta. Nasce no <code>POST /auth/login</code>, vale
+            15 minutos, e é validado em toda rota que não seja pública.</p>
+        </div>
+        <div class="card">
+          <span class="pill warn">X-Agencia-Token</span>
+          <h3 style="margin-top:12px">Identifica um processo</h3>
+          <p style="font-size:14px">Uma agência falando com outra. É um segredo de serviço, não expira,
+            e guarda <strong>só</strong> a rota <code>/interno</code>.</p>
+        </div>
+      </div>
+
+      <div class="callout">
+        <div class="lab">Por que não usar o JWT do usuário entre agências?</div>
+        <p>Porque um JWT identifica uma <em>pessoa</em> e expira em 15 min. Repassá-lo daria à agência 1
+          o poder de agir como a Ana em qualquer lugar — o problema clássico do <strong>confused
+          deputy</strong>. O processo precisa do <strong>próprio</strong> segredo.</p>
+      </div>
+
+      <h2>Onde começa: um filtro na frente de tudo</h2>
+      <p>Toda requisição HTTP passa pelo <code>FiltroJwt</code> antes de chegar a qualquer controller.
+        Ele é registrado em <code>/*</code> com ordem 2 — o filtro de CORS é ordem 1, de propósito:
+        o <code>OPTIONS</code> de preflight do navegador chega <strong>sem</strong> token e precisa
+        passar antes.</p>
+
+      <figure class="figwrap">
+        <svg viewBox="0 0 680 330" role="img" aria-label="Fluxo do FiltroJwt: a requisição passa por três testes em ordem — rota pública passa sem token; rota interna exige o X-Agencia-Token; qualquer outra exige o JWT Bearer válido.">
+          <rect x="270" y="14" width="140" height="40" rx="9" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.5"/>
+          <text x="340" y="33" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="12.5" fill="currentColor">Requisição HTTP</text>
+          <text x="340" y="48" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9.5" fill="var(--muted)">entra no FiltroJwt</text>
+
+          <!-- step 1 -->
+          <line x1="340" y1="54" x2="340" y2="78" stroke="currentColor" stroke-width="1.4" marker-end="url(#d)"/>
+          <polygon points="340,80 452,106 340,132 228,106" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="340" y="103" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="currentColor">é pública?</text>
+          <text x="340" y="117" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="var(--muted)">/auth/ · /status</text>
+          <line x1="452" y1="106" x2="560" y2="106" stroke="var(--ok)" stroke-width="1.5" marker-end="url(#dg)"/>
+          <text x="470" y="99" font-family="IBM Plex Mono,monospace" font-size="9.5" fill="var(--ok)">sim</text>
+          <rect x="560" y="88" width="104" height="36" rx="8" fill="color-mix(in srgb,var(--ok) 14%,transparent)" stroke="var(--ok)" stroke-width="1.3"/>
+          <text x="612" y="110" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="11.5" fill="var(--ok)">passa livre</text>
+
+          <!-- step 2 -->
+          <line x1="340" y1="132" x2="340" y2="152" stroke="currentColor" stroke-width="1.4" marker-end="url(#d)"/>
+          <text x="352" y="147" font-family="IBM Plex Mono,monospace" font-size="9" fill="var(--muted)">não</text>
+          <polygon points="340,154 452,180 340,206 228,180" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="340" y="177" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="currentColor">é /interno?</text>
+          <text x="340" y="191" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="var(--muted)">extrato entre agências</text>
+          <line x1="452" y1="180" x2="560" y2="180" stroke="var(--warn)" stroke-width="1.5" marker-end="url(#dw)"/>
+          <text x="462" y="173" font-family="IBM Plex Mono,monospace" font-size="9.5" fill="var(--warn)">sim</text>
+          <rect x="560" y="162" width="104" height="36" rx="8" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1.3"/>
+          <text x="612" y="178" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="10.5" fill="var(--warn)">X-Agencia-Token</text>
+          <text x="612" y="191" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="var(--warn)">confere o segredo</text>
+
+          <!-- step 3 -->
+          <line x1="340" y1="206" x2="340" y2="226" stroke="currentColor" stroke-width="1.4" marker-end="url(#d)"/>
+          <text x="352" y="221" font-family="IBM Plex Mono,monospace" font-size="9" fill="var(--muted)">não</text>
+          <rect x="250" y="228" width="180" height="42" rx="9" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="340" y="247" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="12" fill="var(--accent-ink)">exige JWT Bearer válido</text>
+          <text x="340" y="262" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="var(--accent-ink)">valida a assinatura (sem banco)</text>
+          <line x1="340" y1="270" x2="340" y2="292" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#da)"/>
+          <text x="340" y="312" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="currentColor">grava o usuário na requisição → controller</text>
+
+          <defs>
+            <marker id="d" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="currentColor"/></marker>
+            <marker id="dg" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--ok)"/></marker>
+            <marker id="dw" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--warn)"/></marker>
+            <marker id="da" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--accent)"/></marker>
+          </defs>
+        </svg>
+        <figcaption>A ordem dos testes é a defesa. <code>/interno</code> é checado pelo caminho
+          <strong>antes</strong> de olhar o header — assim o valor-padrão do segredo de serviço não abre
+          nenhuma rota fora dessa.</figcaption>
+      </figure>
+
+      <h2>Onde termina: a validação é pura matemática</h2>
+      <p>O token é <strong>conferido</strong>, não consultado. Validar é checar a assinatura HMAC com a
+        chave secreta — uma conta, não um acesso a banco. É isso que torna a autenticação
+        <em>stateless</em>: qualquer uma das 3 agências valida um token emitido por qualquer outra,
+        porque compartilham a chave. Não há sessão nem tabela de tokens.</p>
+
+      <h3>A anatomia do token</h3>
+      <div class="jwt">
+        <span class="h">header · HS256</span><span class="dot">.</span>
+        <span class="p">payload · conta, nome, agência, exp</span><span class="dot">.</span>
+        <span class="s">assinatura · HMAC(chave)</span>
+      </div>
+      <p>O algoritmo é <strong>fixo em HS256</strong>, e essa é uma pergunta clássica: sem fixar, a
+        biblioteca escolhe o algoritmo pelo tamanho da chave e o token saía em HS384. Trocar o segredo
+        passaria a mudar a criptografia sem ninguém perceber. Fixar é decisão, não efeito colateral.</p>
+
+      <h3>As chaves, uma por uma</h3>
+      <div class="tablewrap">
+      <table>
+        <thead><tr><th>Chave</th><th>Tipo</th><th>Para quê</th></tr></thead>
+        <tbody>
+          <tr><td><span class="mono">JWT_SEGREDO</span></td><td>simétrica (HMAC)</td><td>assina e valida o JWT; as 3 agências compartilham</td></tr>
+          <tr><td><span class="mono">AGENCIA_TOKEN</span></td><td>segredo de serviço</td><td>abre só a rota <span class="mono">/interno</span></td></tr>
+          <tr><td>senha (BCrypt)</td><td>hash lento</td><td>guardada fora da <span class="mono">Conta</span>; se o dump vazar, não entrega a senha</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h2>O login, e as três defesas escondidas nele</h2>
+      <div class="steps">
+        <div class="step"><div class="dot"></div><div>
+          <h4>Conta de outra agência → 400, não 401</h4>
+          <p>“O problema não é credencial, é porta de entrada errada” — e a mensagem diz qual agência procurar.</p></div></div>
+        <div class="step"><div class="dot"></div><div>
+          <h4>Conta inexistente → 401 genérico</h4>
+          <p>Mesma mensagem para “não existe” e “senha errada”, para não deixar enumerar contas válidas.</p></div></div>
+        <div class="step"><div class="dot"></div><div>
+          <h4>Só então confere a senha (BCrypt) e emite o token</h4>
+          <p>BCrypt é lento de propósito, o que encarece força bruta.</p></div></div>
+      </div>
+
+      <div class="callout crit">
+        <div class="lab">O furo que você documentou — chegue nele primeiro</div>
+        <p><strong>Autenticação existe; autorização por recurso NÃO.</strong> Qualquer JWT válido opera
+          qualquer conta da agência — o filtro confere <em>quem você é</em>, nunca <em>se a conta é sua</em>.
+          E o alcance é entre agências (o token da Ana lê a conta do Bruno na agência 1). É o OWASP API1
+          (BOLA), registrado com evidência em vez de escondido.</p>
+      </div>
+
+      <div class="callout crit">
+        <div class="lab">O elo com o Sprint 2 — o que impressiona a banca</div>
+        <p>No Sprint 2 a rota <code>/creditar-remoto</code> foi <strong>apagada</strong>: creditar virou
+          <em>mensagem</em>, e mensagem não passa pelo <code>FiltroJwt</code>. A fronteira de confiança
+          mudou do filtro HTTP para o <strong>broker</strong> — quem publicar na exchange credita uma conta.
+          No ambiente de dev isso está aberto (broker em <span class="mono">guest/guest</span>), e eu
+          comprovei: publicar uma mensagem forjada creditou uma conta sem token e sem debitar ninguém.
+          É a resposta da questão 7.5.3.</p>
+      </div>
+
+      <div class="footer-nav">
+        <button data-go="mudanca">← <span><span class="lab">Anterior</span>Sprint 1 → Sprint 2</span></button>
+        <button data-go="vetor"><span><span class="lab">Próximo</span>Relógio vetorial</span> →</button>
+      </div>
+    </section>
+
+    <!-- 04 ───────────────────────────────── -->
+    <section data-view="vetor">
+      <div class="eyebrow">O conceito do sprint</div>
+      <h1 class="title">Relógio vetorial: de “quantos” para “de quem”</h1>
+      <p class="lede">Lamport guardava um número: quantos eventos eu já vi. O vetorial guarda um
+        contador <strong>por agência</strong>: quantos eventos de cada uma eu conheço. Essa diferença é
+        tudo.</p>
+
+      <div class="card">
+        <h3>O que Lamport não respondia</h3>
+        <p>Com um inteiro só, <span class="mono">ts(A) &lt; ts(B)</span> pode significar “A causou B”
+          <strong>ou</strong> “são independentes e B só contou mais”. Não há como distinguir, porque a
+          informação foi comprimida num número. O vetorial não comprime — por isso consegue afirmar
+          <strong>concorrência</strong>, não só suspeitar.</p>
+      </div>
+
+      <figure class="figwrap">
+        <svg viewBox="0 0 680 210" role="img" aria-label="Dois exemplos de comparação de vetores. [3,1,0] e [3,2,0]: o primeiro é menor ou igual em toda posição, então aconteceu antes. [3,1,0] e [1,3,0]: cada um é maior numa posição diferente, então são concorrentes.">
+          <text x="24" y="26" font-family="IBM Plex Mono,monospace" font-size="12" fill="currentColor" font-weight="600">CAUSAL  (um domina o outro)</text>
+          <rect x="24" y="40" width="120" height="40" rx="9" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.4"/>
+          <text x="84" y="65" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="14" fill="currentColor">[3, 1, 0]</text>
+          <line x1="150" y1="60" x2="240" y2="60" stroke="var(--ok)" stroke-width="1.6" marker-end="url(#v1)"/>
+          <text x="195" y="52" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="var(--ok)">≤ em tudo</text>
+          <rect x="246" y="40" width="120" height="40" rx="9" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.4"/>
+          <text x="306" y="65" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="14" fill="currentColor">[3, 2, 0]</text>
+          <rect x="398" y="46" width="150" height="28" rx="14" fill="color-mix(in srgb,var(--ok) 14%,transparent)" stroke="var(--ok)" stroke-width="1.2"/>
+          <text x="473" y="65" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="12" fill="var(--ok)">ANTES</text>
+
+          <line x1="24" y1="108" x2="656" y2="108" stroke="var(--line)" stroke-width="1"/>
+
+          <text x="24" y="138" font-family="IBM Plex Mono,monospace" font-size="12" fill="currentColor" font-weight="600">CONCORRENTE  (ninguém domina)</text>
+          <rect x="24" y="152" width="120" height="40" rx="9" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.4"/>
+          <text x="84" y="177" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="14" fill="currentColor">[<tspan fill="var(--accent)">3</tspan>, 1, 0]</text>
+          <line x1="150" y1="172" x2="240" y2="172" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="4 3"/>
+          <text x="195" y="164" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9.5" fill="var(--muted)">0&gt;1 · 1&lt;3</text>
+          <rect x="246" y="152" width="120" height="40" rx="9" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.4"/>
+          <text x="306" y="177" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="14" fill="currentColor">[1, <tspan fill="var(--accent)">3</tspan>, 0]</text>
+          <rect x="398" y="158" width="190" height="28" rx="14" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.2"/>
+          <text x="493" y="177" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="12" fill="var(--accent-ink)">CONCORRENTES</text>
+          <defs><marker id="v1" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--ok)"/></marker></defs>
+        </svg>
+        <figcaption>Em cima, o primeiro vetor nunca é maior — logo aconteceu antes. Embaixo, cada vetor é
+          maior numa posição diferente: cada agência sabe de algo que a outra não sabe, e nenhuma pôde
+          causar a outra.</figcaption>
+      </figure>
+
+      <h3>O carimbo real, da execução ao vivo</h3>
+      <p>Quando a agência 1 (parada em <span class="mono">[0,3,0]</span>) recebeu a mensagem da agência 0
+        com vetor <span class="mono">[4,0,0]</span>, a regra 3 produziu:</p>
+      <pre>max( [0,3,0] , [4,0,0] )  =  [4,3,0]      <span class="c"># posição a posição</span>
+depois +1 na própria (posição 1)  =  <b>[4,4,0]</b>   <span class="c"># o carimbo gravado</span></pre>
+
+      <div class="callout">
+        <div class="lab">Por que o carimbo NÃO implementa Comparable</div>
+        <p>Porque <code>comparar()</code> devolve <strong>quatro</strong> respostas: IGUAIS, ANTES, DEPOIS,
+          CONCORRENTES. <code>Comparable</code> promete ordem <strong>total</strong> (para quaisquer dois, um
+          vem antes). O vetorial dá ordem <strong>parcial</strong>. Forçar <code>Comparable</code> seria
+          mentir em todo par concorrente — e quebraria o princípio de Liskov. A decisão já estava escrita no
+          Sprint 1, antes de existir vetorial.</p>
+      </div>
+
+      <div class="footer-nav">
+        <button data-go="auth">← <span><span class="lab">Anterior</span>Autenticação</span></button>
+        <button data-go="entrega"><span><span class="lab">Próximo</span>O que entreguei</span> →</button>
+      </div>
+    </section>
+
+    <!-- 05 ───────────────────────────────── -->
+    <section data-view="entrega">
+      <div class="eyebrow">Fechamento do sprint</div>
+      <h1 class="title">O que entreguei — e como está provado</h1>
+      <p class="lede">Os 20 pontos de código e documento estão prontos, em TDD (vermelho antes de verde).
+        Falta só o que depende de mim como pessoa: os prints e o vídeo.</p>
+
+      <div class="tablewrap">
+      <table>
+        <thead><tr><th>Parte</th><th>Pts</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>A — RabbitMQ (exchange, filas, routing)</td><td class="num">3</td><td><span class="pill ok">pronto</span></td></tr>
+          <tr><td>B — Relógio vetorial</td><td class="num">5</td><td><span class="pill ok">pronto</span></td></tr>
+          <tr><td>C — Publish/Subscribe + resiliência</td><td class="num">4</td><td><span class="pill ok">pronto</span></td></tr>
+          <tr><td>Continuidade + commits incrementais</td><td class="num">3</td><td><span class="pill ok">pronto</span></td></tr>
+          <tr><td>D — Linha do tempo causal</td><td class="num">3</td><td><span class="pill ok">entregue agora</span></td></tr>
+          <tr><td>Funcionalidade adicional (deduplicação)</td><td class="num">1</td><td><span class="pill ok">entregue agora</span></td></tr>
+          <tr><td>9 questões do roteiro + declaração de IA</td><td class="num">1</td><td><span class="pill ok">entregue agora</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h2>Parte D — apontar os pares concorrentes</h2>
+      <p>O <code>--mesclar-logs</code> já listava os vetores; agora ele compara pares de agências
+        <strong>diferentes</strong> e aponta os concorrentes. Provei os dois lados: um par independente
+        tem que aparecer, uma transferência entre agências <strong>não</strong> pode aparecer (ela é causal).</p>
+      <pre>=== Resumo ===
+eventos: 22 | agencias: 3 | <b>pares concorrentes: 123</b></pre>
+      <p>O número vai no resumo de propósito: 123 linhas não cabem num print, o número cabe.</p>
+
+      <h2>Funcionalidade adicional — deduplicação</h2>
+      <p>Escolhi a que corrige uma incorreção <strong>real</strong>. A entrega do RabbitMQ é
+        <em>at-least-once</em>: se o ack se perde, o broker reentrega, e o crédito entrava duas vezes.
+        O teste mede o estrago antes do conserto.</p>
+      <pre>conta com 800, mensagem de 40 entregue duas vezes
+<span class="r">saldo observado: 880</span>   <span class="c"># o bug, em vermelho de teste</span>
+<span class="g">depois do conserto: 840</span>  <span class="c"># credita uma vez; a 2ª vira CREDITO_REMOTO_DUPLICADO</span></pre>
+      <p>A identidade da mensagem já existia — o par <span class="mono">(origem, vetorEnvio)</span>, que
+        nunca repete. Não precisei inventar id novo.</p>
+
+      <div class="card">
+        <h3>Prova verde</h3>
+        <p style="margin-top:6px"><span class="pill ok">114 testes backend</span>
+          <span class="pill ok" style="margin-left:6px">17 testes frontend</span></p>
+        <p style="font-size:14px">Autor único <span class="mono">gabriel silveira</span>, sem marca de IA
+          nos commits — a divulgação vai na declaração assinada do RESPOSTAS.md.</p>
+      </div>
+
+      <div class="footer-nav">
+        <button data-go="vetor">← <span><span class="lab">Anterior</span>Relógio vetorial</span></button>
+        <button data-go="defesa"><span><span class="lab">Próximo</span>Banca: perguntas</span> →</button>
+      </div>
+    </section>
+
+    <!-- 06 ───────────────────────────────── -->
+    <section data-view="defesa">
+      <div class="eyebrow">Ensaio para a banca</div>
+      <h1 class="title">As perguntas que vêm — e a resposta de uma frase</h1>
+      <p class="lede">Clique para abrir cada resposta. A ideia é você conseguir dizer a primeira frase
+        sem ler — o resto é reforço.</p>
+
+      <details class="qa"><summary><span class="q">Q</span> Por que trocar REST por fila, se dá mais trabalho?</summary>
+        <div class="body"><p>Para remover o acoplamento temporal. Com REST, origem e destino tinham que
+          estar vivos ao mesmo tempo; um destino fora do ar perdia o crédito com 502. Com a fila, a
+          mensagem fica retida e chega quando o destino voltar.</p></div></details>
+
+      <details class="qa"><summary><span class="q">Q</span> Onde começa e onde termina a autenticação?</summary>
+        <div class="body"><p>Começa no <code>FiltroJwt</code>, que intercepta <code>/*</code> antes de
+          qualquer controller. Termina quando ele grava o usuário autenticado na requisição e deixa
+          seguir. No meio, decide em três degraus: pública passa livre; <code>/interno</code> exige o
+          segredo de serviço; o resto exige JWT Bearer válido.</p></div></details>
+
+      <details class="qa"><summary><span class="q">Q</span> Quais são as chaves e para que servem?</summary>
+        <div class="body"><p><code>JWT_SEGREDO</code> é a chave HMAC simétrica que assina e valida o
+          token, compartilhada pelas 3 agências. <code>AGENCIA_TOKEN</code> é o segredo de serviço que
+          abre só <code>/interno</code>. As senhas ficam em BCrypt, fora da classe Conta.</p></div></details>
+
+      <details class="qa"><summary><span class="q">Q</span> Por que o algoritmo do JWT é fixado em HS256?</summary>
+        <div class="body"><p>Sem fixar, a biblioteca escolhe pelo tamanho da chave e o token saía em
+          HS384. Fixar impede que trocar o segredo mude a criptografia sem ninguém perceber.</p></div></details>
+
+      <details class="qa"><summary><span class="q">Q</span> O consumidor de mensagens não exige JWT. É falha?</summary>
+        <div class="body"><p>Em duas metades. O consumidor está certo em não exigir — ele não atende
+          requisição HTTP, não há onde o token caberia, e o token expiraria na fila. Mas a fronteira de
+          confiança virou o broker, e no ambiente de dev ele está em <code>guest/guest</code> com as
+          portas abertas. Comprovei: publicar na exchange credita uma conta sem token. É dívida
+          documentada (7.5.3).</p></div></details>
+
+      <details class="qa"><summary><span class="q">Q</span> Um usuário consegue mexer na conta de outro?</summary>
+        <div class="body"><p>Sim, e eu documentei. Há autenticação, mas não autorização por recurso:
+          qualquer JWT válido opera qualquer conta da agência, inclusive entre agências. É o OWASP API1
+          (BOLA), registrado com evidência em vez de escondido.</p></div></details>
+
+      <details class="qa"><summary><span class="q">Q</span> Por que o carimbo não implementa Comparable?</summary>
+        <div class="body"><p>Porque a comparação tem quatro respostas, incluindo CONCORRENTES.
+          <code>Comparable</code> promete ordem total; o vetorial dá ordem parcial. Forçar quebraria
+          Liskov.</p></div></details>
+
+      <details class="qa"><summary><span class="q">Q</span> A transferência falha em algum caso ainda?</summary>
+        <div class="body"><p>Sim, se o <strong>broker</strong> cair entre debitar e publicar: o débito
+          fica e o crédito não é publicado — HTTP 503, com <code>TRANSFERENCIA_FALHOU</code> no log.
+          O 502 do Sprint 1 (destino fora) desapareceu. Fechar os dois lados é o Sprint 4, com transação
+          distribuída.</p></div></details>
+
+      <details class="qa"><summary><span class="q">Q</span> O que “HTTP 200” significa agora numa transferência entre agências?</summary>
+        <div class="body"><p>Que a mensagem foi publicada e não vai mais se perder — <strong>não</strong>
+          que o dinheiro chegou. Por isso o recibo mudou para “Transferência publicada para a agência N”.</p></div></details>
+
+      <div class="callout">
+        <div class="lab">Como rodar no laboratório (sem Docker)</div>
+        <p>O PC do lab não tem Docker. Sem ele, o frontend e as agências rodam como processos normais;
+          só o broker é remoto (CloudAMQP). Rode <code>./verificar-broker.sh</code> primeiro — ele testa,
+          no PC do lab, se a rede libera a porta 5671 antes da apresentação. O passo a passo completo está
+          em <span class="mono">RODAR-SEM-DOCKER.md</span>.</p>
+      </div>
+
+      <div class="footer-nav">
+        <button data-go="entrega">← <span><span class="lab">Anterior</span>O que entreguei</span></button>
+        <button data-go="rodar"><span><span class="lab">Próximo</span>Como rodar</span> →</button>
+      </div>
+    </section>
+
+    <!-- 07 ───────────────────────────────── -->
+    <section data-view="rodar">
+      <div class="eyebrow">Pôr no ar</div>
+      <h1 class="title">Como rodar — e como abrir esta aula no celular</h1>
+      <p class="lede">Dois caminhos para subir o ICEIBank: um comando com Docker, ou processos
+        normais sem Docker (o PC do laboratório). No fim, como levar esta aula para o celular.</p>
+
+      <h2>Com Docker — um comando</h2>
+      <div class="card">
+        <pre><span class="c"># sobe tudo: broker RabbitMQ + 3 agências + frontend</span>
+docker compose up --build</pre>
+        <div class="tablewrap">
+        <table>
+          <thead><tr><th>Endereço</th><th>O quê</th></tr></thead>
+          <tbody>
+            <tr><td><span class="mono">localhost:5173</span></td><td>frontend — conta <strong>0</strong>, senha <span class="mono">ana123</span></td></tr>
+            <tr><td><span class="mono">localhost:4016–4018</span></td><td>as 3 agências</td></tr>
+            <tr><td><span class="mono">localhost:15672</span></td><td>painel do RabbitMQ (<span class="mono">guest / guest</span>)</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p style="font-size:14px"><code>docker compose down</code> encerra; <code>down -v</code> apaga
+          os dados (filas e <span class="mono">.jsonl</span>).</p>
+      </div>
+
+      <h2>Sem Docker — o PC do laboratório</h2>
+      <p>O Docker só empacotava o broker. Sem ele, o frontend e as agências rodam como processos
+        normais; só o broker passa a ser remoto (CloudAMQP, porta <span class="mono">5671</span>).</p>
+      <div class="callout warn">
+        <div class="lab">Risco nº 1 — teste a rede antes</div>
+        <p>Faculdades bloqueiam portas de saída que não sejam 80/443. Rode o pré-voo <strong>no PC do
+          lab, antes de apresentar</strong>: se falhar, use o hotspot do celular ou apresente do seu
+          notebook. O passo a passo completo está em <span class="mono">RODAR-SEM-DOCKER.md</span>.</p>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="dot"></div><div>
+          <h4>Pré-voo do broker</h4>
+          <p><span class="mono">./verificar-broker.sh</span> — diz se a rede libera a porta 5671.</p></div></div>
+        <div class="step"><div class="dot"></div><div>
+          <h4>As 3 agências</h4>
+          <p><span class="mono">./subir-agencias.sh</span> — sobe 4016, 4017 e 4018 contra o broker remoto.</p></div></div>
+        <div class="step"><div class="dot"></div><div>
+          <h4>O frontend</h4>
+          <p>Com Node: <span class="mono">cd frontend &amp;&amp; npm run dev</span>. Sem Node:
+            <span class="mono">cd frontend/dist &amp;&amp; python3 -m http.server 5173</span>.</p></div></div>
+      </div>
+
+      <h2>O roteiro da demonstração ao vivo</h2>
+      <p>A ordem que mostra tudo o que vale nota, sem tropeçar:</p>
+      <div class="steps">
+        <div class="step"><div class="dot"></div><div>
+          <h4>Entre com a conta 0 (<span class="mono">ana123</span>)</h4>
+          <p>Mostra o login e o JWT nascendo.</p></div></div>
+        <div class="step"><div class="dot"></div><div>
+          <h4>Transfira da conta 0 para a conta 1</h4>
+          <p>O recibo diz “publicada para a agência 1” — viajou pela fila. Veja o crédito aparecer na
+            linha do tempo.</p></div></div>
+        <div class="step"><div class="dot"></div><div>
+          <h4>Abra a Linha do tempo</h4>
+          <p>Clique em “Gerar eventos concorrentes” e mostre a tabela da Parte D com os pares marcados.</p></div></div>
+        <div class="step"><div class="dot"></div><div>
+          <h4>Resiliência — por último</h4>
+          <p>Derrube uma agência (<span class="mono">docker compose stop agencia-1</span>), transfira para
+            ela, mostre a mensagem na fila, suba de volta e veja o crédito chegar.</p></div></div>
+      </div>
+      <div class="callout crit">
+        <div class="lab">Armadilha da demo ao vivo</div>
+        <p>Reiniciar uma agência <strong>zera as contas dela</strong> (vivem em memória). Faça a
+          resiliência <strong>por último</strong> — se transferir para uma agência e depois reiniciá-la,
+          o saldo some e a soma deixa de fechar. É a limitação documentada, não um bug novo.</p>
+      </div>
+
+      <h2>Abrir esta aula no celular</h2>
+      <div class="card">
+        <h3>Jeito mais simples</h3>
+        <p style="font-size:14px">Abra o <strong>link do artifact</strong> no navegador do celular — já
+          renderiza, nada para extrair. Precisa de internet e estar logado na mesma conta.</p>
+        <h3 style="margin-top:18px">Para carregar offline</h3>
+        <p style="font-size:14px">Use o arquivo único <span class="mono">aula-iceibank-sprint2.html</span>
+          (está no repositório). Mande para você mesmo por WhatsApp, e-mail ou Google Drive e toque para
+          abrir — qualquer navegador de celular abre, sem app e sem internet (as fontes caem num
+          substituto do sistema, o conteúdo fica igual). <strong>Um HTML só não precisa de RAR nem ZIP</strong>:
+          arquivo compactado no celular exige um app para extrair primeiro.</p>
+      </div>
+
+      <div class="footer-nav">
+        <button data-go="defesa">← <span><span class="lab">Anterior</span>Banca: perguntas</span></button>
+        <button data-go="overview"><span><span class="lab">Voltar ao</span>Início</span> ↺</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  const views = [...document.querySelectorAll('section[data-view]')];
+  const btns = [...document.querySelectorAll('[data-go]')];
+  const ids = views.map(v => v.dataset.view);
+
+  function show(id, push){
+    if(!ids.includes(id)) id = 'overview';
+    views.forEach(v => v.classList.toggle('on', v.dataset.view === id));
+    document.querySelectorAll('nav.toc button').forEach(b =>
+      b.setAttribute('aria-current', b.dataset.go === id ? 'true' : 'false'));
+    if(push && location.hash.slice(1) !== id) history.pushState(null,'',''+'#'+id);
+    document.getElementById('main').scrollTo?.(0,0);
+    window.scrollTo(0,0);
+  }
+  btns.forEach(b => b.addEventListener('click', () => show(b.dataset.go, true)));
+  window.addEventListener('popstate', () => show(location.hash.slice(1), false));
+  show(location.hash.slice(1) || 'overview', false);
+
+  // tema
+  const order = ['system','light','dark'];
+  const lab = {system:'sistema', light:'claro', dark:'escuro'};
+  let ti = 0;
+  try { const s = localStorage.getItem('iceibank-aula-tema'); if(s) ti = Math.max(0,order.indexOf(s)); } catch(e){}
+  function applyTheme(){
+    const t = order[ti];
+    if(t === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', t);
+    document.getElementById('themelab').textContent = lab[t];
+    try { localStorage.setItem('iceibank-aula-tema', t); } catch(e){}
+  }
+  document.getElementById('theme').addEventListener('click', () => { ti=(ti+1)%order.length; applyTheme(); });
+  applyTheme();
+</script>
+
+</body>
+</html>
