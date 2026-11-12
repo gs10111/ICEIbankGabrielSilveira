@@ -723,7 +723,17 @@ mensagens cresce com o quadrado do número de agências no pior caso.
 
 O fluxo bancário completo (login JWT, saldo, depósito, saque, transferência local e entre agências,
 erros da API na tela) está coberto por testes de widget em `app_mobile/test/fluxo_bancario_test.dart`:
-45 testes no app, todos verdes.
+47 testes no app, todos verdes, e os que rodam no navegador também passam com
+`flutter test --platform chrome`.
+
+![Transferência entre agências pelo app, contra a pilha em container](evidencias/sprint3/app-transferencia.png)
+
+A transferência acima (conta 0 → conta 1, R$ 25,00) foi feita pela interface contra a pilha do
+`docker compose`: a conta 0 foi de R$ 1.000,00 para R$ 975,00 e a conta 1, na agência 1, de
+R$ 800,00 para R$ 825,00, com o `TRANSFERENCIA_CREDITO_REMOTO` chegando pela fila. Essa rodada
+achou um defeito que os testes na VM não pegavam: a chave de idempotência usava
+`Random.nextInt(1 << 32)`, e compilado para JavaScript `1 << 32` vale 0. Toda transferência
+falhava no app web antes de sair do aparelho. Corrigido no commit `54fcf7f`.
 
 ### 8.3.1 — Com que frequência o app consulta `/bully/lider`? Que trade-off?
 
@@ -1006,6 +1016,7 @@ próprio print), contra as agências reais em execução.
 | `app-offline.png` | Modo avião: aviso de offline, depósito de R$ 50,00 como pendente, saldo provisório R$ 1.110,00 e confirmado R$ 1.060,00 |
 | `app-sincronizacao.png` | Antes e depois: a rede volta e a pendente sincroniza sozinha; fila vazia, saldo confirmado R$ 1.110,00 |
 | `app-conflito-409.png` | Tarefa 5 da Parte F: saque offline, depósito por fora, reconexão, e o cartão vermelho "Não aplicada" com o saldo real e as duas escolhas |
+| `app-transferencia.png` | Transferência 0 → 1 de R$ 25,00 pelo app, contra a pilha em container: recibo *"Transferencia publicada para a agencia 1"* e saldo R$ 975,00 |
 | `agencias-ativas.png` | Funcionalidade adicional: `AG 0 · no ar`, `AG 1 · no ar`, `AG 2 · fora`, com a coroa na líder 1 |
 
 ---
