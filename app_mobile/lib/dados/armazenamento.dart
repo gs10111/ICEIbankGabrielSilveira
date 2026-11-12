@@ -51,32 +51,38 @@ class Armazenamento {
     return m == null ? null : ContaLida.doArmazenamento(m);
   }
 
-  Future<void> guardarConta(ContaLida conta) => _contas.put(conta.id, conta.paraArmazenamento());
+  Future<void> guardarConta(ContaLida conta) =>
+      _contas.put(conta.id, conta.paraArmazenamento());
 
   // ------------------------------------------------------------- pendentes
 
   List<OperacaoPendente> pendentes(int idConta) => [
-        for (final chave in _pendentes.keys.cast<int>().toList()..sort())
-          if (_pendentes.get(chave)!['idConta'] == idConta)
-            OperacaoPendente.doArmazenamento(chave, _pendentes.get(chave)!),
-      ];
+    for (final chave in _pendentes.keys.cast<int>().toList()..sort())
+      if (_pendentes.get(chave)!['idConta'] == idConta)
+        OperacaoPendente.doArmazenamento(chave, _pendentes.get(chave)!),
+  ];
 
   OperacaoPendente? pendente(int chave) {
     final m = _pendentes.get(chave);
     return m == null ? null : OperacaoPendente.doArmazenamento(chave, m);
   }
 
-  Future<void> enfileirar(int idConta, String tipo, int centavos, List<int> vetorConhecido) =>
-      _pendentes.add({
-        'idConta': idConta,
-        'tipo': tipo,
-        'centavos': centavos,
-        'vetorConhecido': vetorConhecido,
-        'criadaEm': DateTime.now().toIso8601String(),
-        'estado': EstadoPendente.pendente.name,
-      });
+  Future<void> enfileirar(
+    int idConta,
+    String tipo,
+    int centavos,
+    List<int> vetorConhecido,
+  ) => _pendentes.add({
+    'idConta': idConta,
+    'tipo': tipo,
+    'centavos': centavos,
+    'vetorConhecido': vetorConhecido,
+    'criadaEm': DateTime.now().toIso8601String(),
+    'estado': EstadoPendente.pendente.name,
+  });
 
-  Future<void> substituir(OperacaoPendente op) => _pendentes.put(op.chave, op.paraArmazenamento());
+  Future<void> substituir(OperacaoPendente op) =>
+      _pendentes.put(op.chave, op.paraArmazenamento());
 
   Future<void> remover(OperacaoPendente op) => _pendentes.delete(op.chave);
 
@@ -95,9 +101,15 @@ class Armazenamento {
 
   String? get host => _sessao.get('host') as String?;
 
-  Future<void> guardarSessao(Sessao s, String host) => _sessao.putAll(
-      {'token': s.token, 'idConta': s.idConta, 'nome': s.nome, 'agencia': s.agencia, 'host': host});
+  Future<void> guardarSessao(Sessao s, String host) => _sessao.putAll({
+    'token': s.token,
+    'idConta': s.idConta,
+    'nome': s.nome,
+    'agencia': s.agencia,
+    'host': host,
+  });
 
   /// Apaga o token, mas guarda o host: na proxima abertura o campo ja vem certo.
-  Future<void> limparSessao() => _sessao.deleteAll(['token', 'idConta', 'nome', 'agencia']);
+  Future<void> limparSessao() =>
+      _sessao.deleteAll(['token', 'idConta', 'nome', 'agencia']);
 }

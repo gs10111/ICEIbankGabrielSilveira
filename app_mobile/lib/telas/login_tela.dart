@@ -56,14 +56,19 @@ class _LoginTelaState extends State<LoginTela> {
             if (aviso != null) ...[
               Card(
                 color: Theme.of(context).colorScheme.errorContainer,
-                child: Padding(padding: const EdgeInsets.all(12), child: Text(aviso)),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(aviso),
+                ),
               ),
               const SizedBox(height: 12),
             ],
             TextField(
               controller: _host,
               decoration: const InputDecoration(
-                  labelText: 'Host das agências', helperText: 'Emulador Android: 10.0.2.2 · celular: IP do PC'),
+                labelText: 'Host das agências',
+                helperText: 'Emulador Android: 10.0.2.2 · celular: IP do PC',
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -80,7 +85,10 @@ class _LoginTelaState extends State<LoginTela> {
             ),
             if (_erro != null) ...[
               const SizedBox(height: 12),
-              Text(_erro!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(
+                _erro!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ],
             const SizedBox(height: 16),
             FilledButton(
@@ -97,4 +105,5 @@ class _LoginTelaState extends State<LoginTela> {
 }
 
 /// Usado pela tela de conta tambem.
-void mostrarErro(BuildContext context, Object erro) => avisar(context, erro.toString(), erro: true);
+void mostrarErro(BuildContext context, Object erro) =>
+    avisar(context, erro.toString(), erro: true);

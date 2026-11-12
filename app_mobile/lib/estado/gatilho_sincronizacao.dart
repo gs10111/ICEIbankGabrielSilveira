@@ -19,7 +19,11 @@ class GatilhoDeSincronizacao {
   StreamSubscription<List<ConnectivityResult>>? _assinatura;
   Timer? _timer;
 
-  GatilhoDeSincronizacao(this.banco, {required this.conectividade, this.intervalo = const Duration(seconds: 5)});
+  GatilhoDeSincronizacao(
+    this.banco, {
+    required this.conectividade,
+    this.intervalo = const Duration(seconds: 5),
+  });
 
   void iniciar() {
     _assinatura = conectividade.listen((estado) {
@@ -34,7 +38,9 @@ class GatilhoDeSincronizacao {
     if (!banco.logado) return;
     try {
       await banco.sincronizarPendentes();
-      if (banco.logado) await banco.atualizar();      // traz o saldo confirmado e limpa o "offline"
+      if (banco.logado) {
+        await banco.atualizar(); // traz o saldo confirmado e limpa o "offline"
+      }
     } catch (_) {
       // erro de API ja virou estado no Banco (sessao expirada, conflito); nada a fazer aqui
     }

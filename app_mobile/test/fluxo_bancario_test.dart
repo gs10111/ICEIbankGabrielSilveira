@@ -16,19 +16,43 @@ import 'package:material_ui/material_ui.dart';
 MockClient agenciaFalsa() {
   var saldo = 100.0;
   http.Response conta() => http.Response(
-      jsonEncode({'id': 0, 'nomeAluno': 'Ana Souza', 'saldo': saldo, 'agencia': 0, 'vetorAtual': [1, 0, 0]}), 200);
+    jsonEncode({
+      'id': 0,
+      'nomeAluno': 'Ana Souza',
+      'saldo': saldo,
+      'agencia': 0,
+      'vetorAtual': [1, 0, 0],
+    }),
+    200,
+  );
   return MockClient((r) async {
     final corpo = r.body.isEmpty ? {} : jsonDecode(r.body) as Map;
     switch (r.url.path) {
       case '/auth/login':
-        if (corpo['senha'] != 'ana123') return http.Response(jsonEncode({'erro': 'credenciais invalidas'}), 401);
-        return http.Response(jsonEncode({'token': 't', 'idConta': 0, 'nomeAluno': 'Ana Souza', 'agencia': 0}), 200);
+        if (corpo['senha'] != 'ana123') {
+          return http.Response(
+            jsonEncode({'erro': 'credenciais invalidas'}),
+            401,
+          );
+        }
+        return http.Response(
+          jsonEncode({
+            'token': 't',
+            'idConta': 0,
+            'nomeAluno': 'Ana Souza',
+            'agencia': 0,
+          }),
+          200,
+        );
       case '/contas/0/depositar':
         saldo += corpo['valor'] as num;
         return conta();
       case '/contas/0/sacar':
         if ((corpo['valor'] as num) > saldo) {
-          return http.Response(jsonEncode({'erro': 'saldo insuficiente: saldo=$saldo'}), 400);
+          return http.Response(
+            jsonEncode({'erro': 'saldo insuficiente: saldo=$saldo'}),
+            400,
+          );
         }
         saldo -= corpo['valor'] as num;
         return conta();
@@ -54,7 +78,10 @@ Future<void> operar(WidgetTester tester, String botao, String valor) async {
 
 IceiBankApp app() {
   final api = ApiCliente(const Malha(host: 'h'), cliente: agenciaFalsa());
-  return IceiBankApp(banco: Banco(api, armazenamento), monitor: MonitorLideranca(api));
+  return IceiBankApp(
+    banco: Banco(api, armazenamento),
+    monitor: MonitorLideranca(api),
+  );
 }
 
 late Armazenamento armazenamento;
@@ -77,14 +104,17 @@ void main() {
     expect(find.text(r'R$ 129,50'), findsOneWidget);
   });
 
-  testWidgets('erro da API aparece na tela: senha errada e saldo insuficiente', (tester) async {
-    await tester.pumpWidget(app());
+  testWidgets(
+    'erro da API aparece na tela: senha errada e saldo insuficiente',
+    (tester) async {
+      await tester.pumpWidget(app());
 
-    await entrar(tester, 'errada');
-    expect(find.text('credenciais invalidas'), findsOneWidget);
+      await entrar(tester, 'errada');
+      expect(find.text('credenciais invalidas'), findsOneWidget);
 
-    await entrar(tester, 'ana123');
-    await operar(tester, 'Sacar', '999');
-    expect(find.textContaining('saldo insuficiente'), findsOneWidget);
-  });
+      await entrar(tester, 'ana123');
+      await operar(tester, 'Sacar', '999');
+      expect(find.textContaining('saldo insuficiente'), findsOneWidget);
+    },
+  );
 }

@@ -19,7 +19,7 @@ enum EstadoPendente {
 class OperacaoPendente {
   final int chave;
   final int idConta;
-  final String tipo;                 // DEPOSITO | SAQUE — os que o backend sincroniza
+  final String tipo; // DEPOSITO | SAQUE — os que o backend sincroniza
   final int centavos;
   final List<int> vetorConhecido;
   final DateTime criadaEm;
@@ -44,46 +44,49 @@ class OperacaoPendente {
   /// Efeito no saldo provisorio: + deposito, - saque.
   int get efeitoCentavos => ehDeposito ? centavos : -centavos;
 
-  String get descricao => '${ehDeposito ? 'Depósito' : 'Saque'} de ${formatarReais(centavos)}';
+  String get descricao =>
+      '${ehDeposito ? 'Depósito' : 'Saque'} de ${formatarReais(centavos)}';
 
   OperacaoPendente com({
     List<int>? vetorConhecido,
     EstadoPendente? estado,
     String? mensagem,
     int? saldoRealCentavos,
-  }) =>
-      OperacaoPendente(
-        chave: chave,
-        idConta: idConta,
-        tipo: tipo,
-        centavos: centavos,
-        vetorConhecido: vetorConhecido ?? this.vetorConhecido,
-        criadaEm: criadaEm,
-        estado: estado ?? this.estado,
-        mensagem: mensagem,
-        saldoRealCentavos: saldoRealCentavos,
-      );
+  }) => OperacaoPendente(
+    chave: chave,
+    idConta: idConta,
+    tipo: tipo,
+    centavos: centavos,
+    vetorConhecido: vetorConhecido ?? this.vetorConhecido,
+    criadaEm: criadaEm,
+    estado: estado ?? this.estado,
+    mensagem: mensagem,
+    saldoRealCentavos: saldoRealCentavos,
+  );
 
   Map<String, dynamic> paraArmazenamento() => {
-        'idConta': idConta,
-        'tipo': tipo,
-        'centavos': centavos,
-        'vetorConhecido': vetorConhecido,
-        'criadaEm': criadaEm.toIso8601String(),
-        'estado': estado.name,
-        'mensagem': mensagem,
-        'saldoRealCentavos': saldoRealCentavos,
-      };
+    'idConta': idConta,
+    'tipo': tipo,
+    'centavos': centavos,
+    'vetorConhecido': vetorConhecido,
+    'criadaEm': criadaEm.toIso8601String(),
+    'estado': estado.name,
+    'mensagem': mensagem,
+    'saldoRealCentavos': saldoRealCentavos,
+  };
 
-  factory OperacaoPendente.doArmazenamento(int chave, Map<dynamic, dynamic> m) => OperacaoPendente(
-        chave: chave,
-        idConta: m['idConta'] as int,
-        tipo: m['tipo'] as String,
-        centavos: m['centavos'] as int,
-        vetorConhecido: List<int>.from(m['vetorConhecido'] as List),
-        criadaEm: DateTime.parse(m['criadaEm'] as String),
-        estado: EstadoPendente.values.byName(m['estado'] as String),
-        mensagem: m['mensagem'] as String?,
-        saldoRealCentavos: m['saldoRealCentavos'] as int?,
-      );
+  factory OperacaoPendente.doArmazenamento(
+    int chave,
+    Map<dynamic, dynamic> m,
+  ) => OperacaoPendente(
+    chave: chave,
+    idConta: m['idConta'] as int,
+    tipo: m['tipo'] as String,
+    centavos: m['centavos'] as int,
+    vetorConhecido: List<int>.from(m['vetorConhecido'] as List),
+    criadaEm: DateTime.parse(m['criadaEm'] as String),
+    estado: EstadoPendente.values.byName(m['estado'] as String),
+    mensagem: m['mensagem'] as String?,
+    saldoRealCentavos: m['saldoRealCentavos'] as int?,
+  );
 }

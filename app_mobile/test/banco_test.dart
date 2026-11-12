@@ -9,8 +9,17 @@ import 'package:iceibank_mobile/dados/armazenamento.dart';
 import 'package:iceibank_mobile/estado/banco.dart';
 import 'package:iceibank_mobile/modelo/malha.dart';
 
-http.Response conta(num saldo, [List<int> vetor = const [1, 0, 0]]) => http.Response(
-    jsonEncode({'id': 0, 'nomeAluno': 'Ana', 'saldo': saldo, 'agencia': 0, 'vetorAtual': vetor}), 200);
+http.Response conta(num saldo, [List<int> vetor = const [1, 0, 0]]) =>
+    http.Response(
+      jsonEncode({
+        'id': 0,
+        'nomeAluno': 'Ana',
+        'saldo': saldo,
+        'agencia': 0,
+        'vetorAtual': vetor,
+      }),
+      200,
+    );
 
 late Armazenamento armazenamento;
 
@@ -21,12 +30,26 @@ void main() {
   const malha = Malha(host: 'h');
 
   test('login guarda o token e ja le a conta', () async {
-    final banco = Banco(ApiCliente(malha, cliente: MockClient((r) async {
-      if (r.url.path == '/auth/login') {
-        return http.Response(jsonEncode({'token': 't', 'idConta': 0, 'nomeAluno': 'Ana', 'agencia': 0}), 200);
-      }
-      return conta(100);
-    })), armazenamento);
+    final banco = Banco(
+      ApiCliente(
+        malha,
+        cliente: MockClient((r) async {
+          if (r.url.path == '/auth/login') {
+            return http.Response(
+              jsonEncode({
+                'token': 't',
+                'idConta': 0,
+                'nomeAluno': 'Ana',
+                'agencia': 0,
+              }),
+              200,
+            );
+          }
+          return conta(100);
+        }),
+      ),
+      armazenamento,
+    );
 
     await banco.entrar(0, 'ana123');
 
@@ -36,16 +59,33 @@ void main() {
 
   test('401 numa operacao derruba a sessao e explica o motivo', () async {
     var logado = false;
-    final banco = Banco(ApiCliente(malha, cliente: MockClient((r) async {
-      if (r.url.path == '/auth/login') {
-        logado = true;
-        return http.Response(jsonEncode({'token': 't', 'idConta': 0, 'nomeAluno': 'Ana', 'agencia': 0}), 200);
-      }
-      if (logado && r.url.path.endsWith('/depositar')) {
-        return http.Response(jsonEncode({'erro': 'token invalido ou expirado'}), 401);
-      }
-      return conta(100);
-    })), armazenamento);
+    final banco = Banco(
+      ApiCliente(
+        malha,
+        cliente: MockClient((r) async {
+          if (r.url.path == '/auth/login') {
+            logado = true;
+            return http.Response(
+              jsonEncode({
+                'token': 't',
+                'idConta': 0,
+                'nomeAluno': 'Ana',
+                'agencia': 0,
+              }),
+              200,
+            );
+          }
+          if (logado && r.url.path.endsWith('/depositar')) {
+            return http.Response(
+              jsonEncode({'erro': 'token invalido ou expirado'}),
+              401,
+            );
+          }
+          return conta(100);
+        }),
+      ),
+      armazenamento,
+    );
     await banco.entrar(0, 'ana123');
 
     await expectLater(banco.depositar(1000), throwsA(isA<ErroApi>()));

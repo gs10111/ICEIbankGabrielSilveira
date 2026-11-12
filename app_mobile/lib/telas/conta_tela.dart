@@ -13,7 +13,10 @@ class ContaTela extends StatelessWidget {
 
   const ContaTela({super.key, required this.banco, this.topo = const []});
 
-  Future<void> _executar(BuildContext context, Future<String> Function() operacao) async {
+  Future<void> _executar(
+    BuildContext context,
+    Future<String> Function() operacao,
+  ) async {
     try {
       final mensagem = await operacao();
       if (context.mounted) avisar(context, mensagem);
@@ -24,18 +27,25 @@ class ContaTela extends StatelessWidget {
 
   Future<void> _depositar(BuildContext context) async {
     final pedido = await pedirValor(context, 'Depósito');
-    if (pedido != null && context.mounted) await _executar(context, () => banco.depositar(pedido.centavos));
+    if (pedido != null && context.mounted) {
+      await _executar(context, () => banco.depositar(pedido.centavos));
+    }
   }
 
   Future<void> _sacar(BuildContext context) async {
     final pedido = await pedirValor(context, 'Saque');
-    if (pedido != null && context.mounted) await _executar(context, () => banco.sacar(pedido.centavos));
+    if (pedido != null && context.mounted) {
+      await _executar(context, () => banco.sacar(pedido.centavos));
+    }
   }
 
   Future<void> _transferir(BuildContext context) async {
     final pedido = await pedirValor(context, 'Transferência', comDestino: true);
     if (pedido != null && context.mounted) {
-      await _executar(context, () => banco.transferir(pedido.destino!, pedido.centavos));
+      await _executar(
+        context,
+        () => banco.transferir(pedido.destino!, pedido.centavos),
+      );
     }
   }
 
@@ -46,7 +56,11 @@ class ContaTela extends StatelessWidget {
       appBar: AppBar(
         title: Text('Olá, ${sessao.nome.split(' ').first}'),
         actions: [
-          IconButton(tooltip: 'Sair', icon: const Icon(Icons.logout), onPressed: banco.sair),
+          IconButton(
+            tooltip: 'Sair',
+            icon: const Icon(Icons.logout),
+            onPressed: banco.sair,
+          ),
         ],
       ),
       body: RefreshIndicator(
@@ -59,24 +73,37 @@ class ContaTela extends StatelessWidget {
           children: [
             ...topo,
             if (banco.offline) _AvisoOffline(banco: banco),
-            for (final op in banco.pendentes.where((p) => p.estado != EstadoPendente.pendente))
+            for (final op in banco.pendentes.where(
+              (p) => p.estado != EstadoPendente.pendente,
+            ))
               _CartaoRecusa(banco: banco, op: op),
             _SaldoCartao(banco: banco),
             const SizedBox(height: 16),
-            Row(children: [
-              Expanded(
+            Row(
+              children: [
+                Expanded(
                   child: FilledButton.tonalIcon(
-                      onPressed: () => _depositar(context), icon: const Icon(Icons.add), label: const Text('Depositar'))),
-              const SizedBox(width: 8),
-              Expanded(
+                    onPressed: () => _depositar(context),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Depositar'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
                   child: FilledButton.tonalIcon(
-                      onPressed: () => _sacar(context), icon: const Icon(Icons.remove), label: const Text('Sacar'))),
-            ]),
+                    onPressed: () => _sacar(context),
+                    icon: const Icon(Icons.remove),
+                    label: const Text('Sacar'),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-                onPressed: () => _transferir(context),
-                icon: const Icon(Icons.swap_horiz),
-                label: const Text('Transferir')),
+              onPressed: () => _transferir(context),
+              icon: const Icon(Icons.swap_horiz),
+              label: const Text('Transferir'),
+            ),
             _ListaPendentes(banco: banco),
           ],
         ),
@@ -95,27 +122,49 @@ class _SaldoCartao extends StatelessWidget {
     final conta = banco.conta;
     final texto = Theme.of(context).textTheme;
     final provisorio = banco.saldoProvisorioCentavos;
-    final emEspera = banco.pendentes.where((p) => p.estado == EstadoPendente.pendente).length;
+    final emEspera = banco.pendentes
+        .where((p) => p.estado == EstadoPendente.pendente)
+        .length;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Conta ${banco.sessao!.idConta} · Agência ${banco.sessao!.agencia}', style: texto.labelLarge),
-          const SizedBox(height: 8),
-          Text(provisorio == null ? '—' : formatarReais(provisorio), style: texto.displaySmall),
-          // UI otimista com o aviso junto: o numero grande pode ainda nao ser real.
-          if (emEspera > 0) ...[
-            const SizedBox(height: 4),
-            Chip(
-              key: const Key('saldo-provisorio'),
-              avatar: const Icon(Icons.schedule, size: 18),
-              label: Text('Provisório: inclui $emEspera operação(ões) pendente(s)'),
-              backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Conta ${banco.sessao!.idConta} · Agência ${banco.sessao!.agencia}',
+              style: texto.labelLarge,
             ),
-            Text('Confirmado pela agência: ${formatarReais(conta!.saldoCentavos)}', style: texto.bodyMedium),
+            const SizedBox(height: 8),
+            Text(
+              provisorio == null ? '—' : formatarReais(provisorio),
+              style: texto.displaySmall,
+            ),
+            // UI otimista com o aviso junto: o numero grande pode ainda nao ser real.
+            if (emEspera > 0) ...[
+              const SizedBox(height: 4),
+              Chip(
+                key: const Key('saldo-provisorio'),
+                avatar: const Icon(Icons.schedule, size: 18),
+                label: Text(
+                  'Provisório: inclui $emEspera operação(ões) pendente(s)',
+                ),
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .tertiaryContainer,
+              ),
+              Text(
+                'Confirmado pela agência: ${formatarReais(conta!.saldoCentavos)}',
+                style: texto.bodyMedium,
+              ),
+            ],
+            if (conta != null)
+              Text(
+                'vetor da agência na leitura: ${conta.vetor}',
+                style: texto.bodySmall,
+              ),
           ],
-          if (conta != null) Text('vetor da agência na leitura: ${conta.vetor}', style: texto.bodySmall),
-        ]),
+        ),
       ),
     );
   }
@@ -135,9 +184,11 @@ class _AvisoOffline extends StatelessWidget {
       child: ListTile(
         leading: const Icon(Icons.cloud_off),
         title: const Text('Sem conexão com a agência'),
-        subtitle: Text('Mostrando o último saldo guardado'
-            '${lida == null ? '' : ' (lido às ${_hora(lida)})'}. '
-            'Depósitos e saques ficam pendentes e sincronizam sozinhos quando a conexão voltar.'),
+        subtitle: Text(
+          'Mostrando o último saldo guardado'
+          '${lida == null ? '' : ' (lido às ${_hora(lida)})'}. '
+          'Depósitos e saques ficam pendentes e sincronizam sozinhos quando a conexão voltar.',
+        ),
       ),
     );
   }
@@ -159,34 +210,51 @@ class _CartaoRecusa extends StatelessWidget {
       color: cores.errorContainer,
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(conflito ? Icons.sync_problem : Icons.block, color: cores.onErrorContainer),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text('Não aplicada: ${op.descricao}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: cores.onErrorContainer)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  conflito ? Icons.sync_problem : Icons.block,
+                  color: cores.onErrorContainer,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Não aplicada: ${op.descricao}',
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(color: cores.onErrorContainer),
+                  ),
+                ),
+              ],
             ),
-          ]),
-          const SizedBox(height: 8),
-          Text(
-            conflito
-                ? 'A conta mudou na agência enquanto o app estava offline, então a operação '
-                    'NÃO foi aplicada automaticamente. Saldo real agora: '
-                    '${formatarReais(op.saldoRealCentavos ?? banco.conta!.saldoCentavos)}.'
-                : 'A agência recusou: ${op.mensagem}',
-            style: TextStyle(color: cores.onErrorContainer),
-          ),
-          const SizedBox(height: 8),
-          Wrap(spacing: 8, children: [
-            if (conflito)
-              FilledButton(
-                onPressed: () => banco.reenviar(op),
-                child: const Text('Aplicar mesmo assim'),
-              ),
-            OutlinedButton(onPressed: () => banco.descartar(op), child: const Text('Descartar')),
-          ]),
-        ]),
+            const SizedBox(height: 8),
+            Text(
+              conflito
+                  ? 'A conta mudou na agência enquanto o app estava offline, então a operação '
+                        'NÃO foi aplicada automaticamente. Saldo real agora: '
+                        '${formatarReais(op.saldoRealCentavos ?? banco.conta!.saldoCentavos)}.'
+                  : 'A agência recusou: ${op.mensagem}',
+              style: TextStyle(color: cores.onErrorContainer),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                if (conflito)
+                  FilledButton(
+                    onPressed: () => banco.reenviar(op),
+                    child: const Text('Aplicar mesmo assim'),
+                  ),
+                OutlinedButton(
+                  onPressed: () => banco.descartar(op),
+                  child: const Text('Descartar'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -199,25 +267,39 @@ class _ListaPendentes extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fila = banco.pendentes.where((p) => p.estado == EstadoPendente.pendente).toList();
+    final fila = banco.pendentes
+        .where((p) => p.estado == EstadoPendente.pendente)
+        .toList();
     if (fila.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Card(
         key: const Key('lista-pendentes'),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Text('Pendentes de sincronização', style: Theme.of(context).textTheme.titleMedium),
-          ),
-          for (final op in fila)
-            ListTile(
-              leading: Icon(op.ehDeposito ? Icons.add_circle_outline : Icons.remove_circle_outline),
-              title: Text(op.descricao),
-              subtitle: Text('feita offline às ${_hora(op.criadaEm)} · sobre o vetor ${op.vetorConhecido}'),
-              trailing: const Chip(label: Text('pendente')),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Text(
+                'Pendentes de sincronização',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
-        ]),
+            for (final op in fila)
+              ListTile(
+                leading: Icon(
+                  op.ehDeposito
+                      ? Icons.add_circle_outline
+                      : Icons.remove_circle_outline,
+                ),
+                title: Text(op.descricao),
+                subtitle: Text(
+                  'feita offline às ${_hora(op.criadaEm)} · sobre o vetor ${op.vetorConhecido}',
+                ),
+                trailing: const Chip(label: Text('pendente')),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -10,27 +10,47 @@ import 'package:iceibank_mobile/modelo/malha.dart';
 void main() {
   const malha = Malha(host: 'agencias');
 
-  test('fala com a agencia DONA da conta: conta 4 -> agencia 1 -> porta 4017', () async {
-    late Uri chamada;
-    final api = ApiCliente(malha, cliente: MockClient((r) async {
-      chamada = r.url;
-      return http.Response(jsonEncode({'id': 4, 'nomeAluno': 'Ana', 'saldo': 250.5, 'agencia': 1,
-        'vetorAtual': [0, 3, 0]}), 200);
-    }));
+  test(
+    'fala com a agencia DONA da conta: conta 4 -> agencia 1 -> porta 4017',
+    () async {
+      late Uri chamada;
+      final api = ApiCliente(
+        malha,
+        cliente: MockClient((r) async {
+          chamada = r.url;
+          return http.Response(
+            jsonEncode({
+              'id': 4,
+              'nomeAluno': 'Ana',
+              'saldo': 250.5,
+              'agencia': 1,
+              'vetorAtual': [0, 3, 0],
+            }),
+            200,
+          );
+        }),
+      );
 
-    final conta = await api.consultar(4);
+      final conta = await api.consultar(4);
 
-    expect(chamada.toString(), 'http://agencias:4017/contas/4');
-    expect(conta.saldoCentavos, 25050);
-    expect(conta.vetor, [0, 3, 0]);
-  });
+      expect(chamada.toString(), 'http://agencias:4017/contas/4');
+      expect(conta.saldoCentavos, 25050);
+      expect(conta.vetor, [0, 3, 0]);
+    },
+  );
 
   test('envia o JWT em toda requisicao depois do login', () async {
     String? autorizacao;
-    final api = ApiCliente(malha, cliente: MockClient((r) async {
-      autorizacao = r.headers['Authorization'];
-      return http.Response(jsonEncode({'id': 0, 'saldo': 1, 'agencia': 0}), 200);
-    }))..token = 'abc';
+    final api = ApiCliente(
+      malha,
+      cliente: MockClient((r) async {
+        autorizacao = r.headers['Authorization'];
+        return http.Response(
+          jsonEncode({'id': 0, 'saldo': 1, 'agencia': 0}),
+          200,
+        );
+      }),
+    )..token = 'abc';
 
     await api.consultar(0);
 
@@ -38,41 +58,85 @@ void main() {
   });
 
   test('erro da agencia vira ErroApi com a mensagem do backend', () async {
-    final api = ApiCliente(malha, cliente: MockClient((_) async =>
-        http.Response(jsonEncode({'erro': 'saldo insuficiente: saldo=10 valor=50'}), 400)));
+    final api = ApiCliente(
+      malha,
+      cliente: MockClient(
+        (_) async => http.Response(
+          jsonEncode({'erro': 'saldo insuficiente: saldo=10 valor=50'}),
+          400,
+        ),
+      ),
+    );
 
-    expect(() => api.sacar(0, 5000),
-        throwsA(isA<ErroApi>().having((e) => e.mensagem, 'mensagem', contains('saldo insuficiente'))));
+    expect(
+      () => api.sacar(0, 5000),
+      throwsA(
+        isA<ErroApi>().having(
+          (e) => e.mensagem,
+          'mensagem',
+          contains('saldo insuficiente'),
+        ),
+      ),
+    );
   });
 
   test('401 e reconhecido como token expirado', () async {
-    final api = ApiCliente(malha, cliente: MockClient((_) async =>
-        http.Response(jsonEncode({'erro': 'token invalido ou expirado'}), 401)));
+    final api = ApiCliente(
+      malha,
+      cliente: MockClient(
+        (_) async => http.Response(
+          jsonEncode({'erro': 'token invalido ou expirado'}),
+          401,
+        ),
+      ),
+    );
 
-    expect(() => api.consultar(0), throwsA(isA<ErroApi>().having((e) => e.tokenExpirado, 'expirado', true)));
+    expect(
+      () => api.consultar(0),
+      throwsA(isA<ErroApi>().having((e) => e.tokenExpirado, 'expirado', true)),
+    );
   });
 
   test('agencia fora do ar vira SemConexao, nao ErroApi', () async {
-    final api = ApiCliente(malha, cliente: MockClient((_) async => throw http.ClientException('recusada')));
+    final api = ApiCliente(
+      malha,
+      cliente: MockClient((_) async => throw http.ClientException('recusada')),
+    );
 
-    expect(() => api.consultar(2), throwsA(isA<SemConexao>().having((e) => e.agencia, 'agencia', 2)));
+    expect(
+      () => api.consultar(2),
+      throwsA(isA<SemConexao>().having((e) => e.agencia, 'agencia', 2)),
+    );
   });
 
-  test('agencia que nao responde dentro do timeout tambem vira SemConexao', () async {
-    final api = ApiCliente(malha, timeout: const Duration(milliseconds: 50), cliente: MockClient((_) async {
-      await Future<void>.delayed(const Duration(seconds: 1));
-      return http.Response('{}', 200);
-    }));
+  test(
+    'agencia que nao responde dentro do timeout tambem vira SemConexao',
+    () async {
+      final api = ApiCliente(
+        malha,
+        timeout: const Duration(milliseconds: 50),
+        cliente: MockClient((_) async {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          return http.Response('{}', 200);
+        }),
+      );
 
-    expect(() => api.consultar(0), throwsA(isA<SemConexao>()));
-  });
+      expect(() => api.consultar(0), throwsA(isA<SemConexao>()));
+    },
+  );
 
   test('transferencia manda a chave de idempotencia no header', () async {
     String? chave;
-    final api = ApiCliente(malha, cliente: MockClient((r) async {
-      chave = r.headers['Idempotency-Key'];
-      return http.Response(jsonEncode({'mensagem': 'ok', 'saldoOrigem': 90}), 200);
-    }));
+    final api = ApiCliente(
+      malha,
+      cliente: MockClient((r) async {
+        chave = r.headers['Idempotency-Key'];
+        return http.Response(
+          jsonEncode({'mensagem': 'ok', 'saldoOrigem': 90}),
+          200,
+        );
+      }),
+    );
 
     await api.transferir(0, 1, 1000, 'chave-1');
 

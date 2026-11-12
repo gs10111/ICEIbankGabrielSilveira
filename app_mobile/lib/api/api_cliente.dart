@@ -28,7 +28,8 @@ class SemConexao implements Exception {
   const SemConexao(this.agencia);
 
   @override
-  String toString() => 'Agência $agencia não respondeu (sem conexão ou fora do ar).';
+  String toString() =>
+      'Agência $agencia não respondeu (sem conexão ou fora do ar).';
 }
 
 /// HTTP 409 de POST /contas/{id}/sincronizar: a operacao offline NAO foi aplicada
@@ -51,12 +52,18 @@ class ApiCliente {
   final Duration timeout;
   String? token;
 
-  ApiCliente(this.malha, {http.Client? cliente, this.timeout = const Duration(seconds: 4)})
-      : _http = cliente ?? http.Client();
+  ApiCliente(
+    this.malha, {
+    http.Client? cliente,
+    this.timeout = const Duration(seconds: 4),
+  }) : _http = cliente ?? http.Client();
 
   Future<Sessao> login(int idConta, String senha) async {
     final agencia = malha.agenciaDaConta(idConta);
-    final corpo = await _requisitar(agencia, 'POST', '/auth/login', {'idConta': idConta, 'senha': senha});
+    final corpo = await _requisitar(agencia, 'POST', '/auth/login', {
+      'idConta': idConta,
+      'senha': senha,
+    });
     return Sessao(
       token: corpo['token'] as String,
       idConta: corpo['idConta'] as int,
@@ -65,39 +72,92 @@ class ApiCliente {
     );
   }
 
-  Future<ContaLida> consultar(int idConta) async =>
-      ContaLida.daApi(await _requisitar(malha.agenciaDaConta(idConta), 'GET', '/contas/$idConta'));
+  Future<ContaLida> consultar(int idConta) async => ContaLida.daApi(
+    await _requisitar(malha.agenciaDaConta(idConta), 'GET', '/contas/$idConta'),
+  );
 
-  Future<ContaLida> depositar(int idConta, int centavos) async => ContaLida.daApi(await _requisitar(
-      malha.agenciaDaConta(idConta), 'POST', '/contas/$idConta/depositar', {'valor': reaisDe(centavos)}));
+  Future<ContaLida> depositar(int idConta, int centavos) async =>
+      ContaLida.daApi(
+        await _requisitar(
+          malha.agenciaDaConta(idConta),
+          'POST',
+          '/contas/$idConta/depositar',
+          {'valor': reaisDe(centavos)},
+        ),
+      );
 
-  Future<ContaLida> sacar(int idConta, int centavos) async => ContaLida.daApi(await _requisitar(
-      malha.agenciaDaConta(idConta), 'POST', '/contas/$idConta/sacar', {'valor': reaisDe(centavos)}));
+  Future<ContaLida> sacar(int idConta, int centavos) async => ContaLida.daApi(
+    await _requisitar(
+      malha.agenciaDaConta(idConta),
+      'POST',
+      '/contas/$idConta/sacar',
+      {'valor': reaisDe(centavos)},
+    ),
+  );
 
   /// A chave de idempotencia e gerada AQUI, no cliente: se o servidor gerasse, cada
   /// reenvio teria chave nova e a deduplicacao do Sprint 1 nao serviria para nada.
-  Future<Recibo> transferir(int idOrigem, int idDestino, int centavos, String chave) async {
-    final corpo = await _requisitarCom(malha.agenciaDaConta(idOrigem), 'POST', '/transferencias',
-        {'idOrigem': idOrigem, 'idDestino': idDestino, 'valor': reaisDe(centavos)},
-        {'Idempotency-Key': chave});
-    return Recibo(corpo['mensagem'] as String, centavosDe(corpo['saldoOrigem']));
+  Future<Recibo> transferir(
+    int idOrigem,
+    int idDestino,
+    int centavos,
+    String chave,
+  ) async {
+    final corpo = await _requisitarCom(
+      malha.agenciaDaConta(idOrigem),
+      'POST',
+      '/transferencias',
+      {
+        'idOrigem': idOrigem,
+        'idDestino': idDestino,
+        'valor': reaisDe(centavos),
+      },
+      {'Idempotency-Key': chave},
+    );
+    return Recibo(
+      corpo['mensagem'] as String,
+      centavosDe(corpo['saldoOrigem']),
+    );
   }
 
   /// SPRINT 3, Parte F — entrega uma operacao feita offline. 409 vira ConflitoDeSincronizacao.
-  Future<ContaLida> sincronizar(int idConta, String tipo, int centavos, List<int> vetorConhecido) async =>
-      ContaLida.daApi(await _requisitar(malha.agenciaDaConta(idConta), 'POST', '/contas/$idConta/sincronizar',
-          {'tipo': tipo, 'valor': reaisDe(centavos), 'vetorConhecido': vetorConhecido}));
+  Future<ContaLida> sincronizar(
+    int idConta,
+    String tipo,
+    int centavos,
+    List<int> vetorConhecido,
+  ) async => ContaLida.daApi(
+    await _requisitar(
+      malha.agenciaDaConta(idConta),
+      'POST',
+      '/contas/$idConta/sincronizar',
+      {
+        'tipo': tipo,
+        'valor': reaisDe(centavos),
+        'vetorConhecido': vetorConhecido,
+      },
+    ),
+  );
 
   /// GET /bully/lider numa agencia especifica. Publico: nao precisa de login.
   /// null = aquela agencia ainda nao sabe quem e a lider (eleicao em curso).
   Future<int?> liderSegundo(int agencia) async =>
       (await _requisitar(agencia, 'GET', '/bully/lider'))['liderAtual'] as int?;
 
-  Future<Map<String, dynamic>> _requisitar(int agencia, String metodo, String caminho,
-      [Map<String, dynamic>? corpo]) async => _requisitarCom(agencia, metodo, caminho, corpo, const {});
+  Future<Map<String, dynamic>> _requisitar(
+    int agencia,
+    String metodo,
+    String caminho, [
+    Map<String, dynamic>? corpo,
+  ]) async => _requisitarCom(agencia, metodo, caminho, corpo, const {});
 
-  Future<Map<String, dynamic>> _requisitarCom(int agencia, String metodo, String caminho,
-      Map<String, dynamic>? corpo, Map<String, String> cabecalhos) async {
+  Future<Map<String, dynamic>> _requisitarCom(
+    int agencia,
+    String metodo,
+    String caminho,
+    Map<String, dynamic>? corpo,
+    Map<String, String> cabecalhos,
+  ) async {
     final requisicao = http.Request(metodo, malha.url(agencia, caminho))
       ..headers.addAll({'Content-Type': 'application/json', ...cabecalhos});
     if (token != null) requisicao.headers['Authorization'] = 'Bearer $token';
@@ -105,14 +165,18 @@ class ApiCliente {
 
     final http.Response resposta;
     try {
-      resposta = await http.Response.fromStream(await _http.send(requisicao).timeout(timeout));
+      resposta = await http.Response.fromStream(
+        await _http.send(requisicao).timeout(timeout),
+      );
     } on TimeoutException {
       throw SemConexao(agencia);
     } on http.ClientException {
       throw SemConexao(agencia);
     }
 
-    final json = resposta.body.isEmpty ? <String, dynamic>{} : jsonDecode(utf8.decode(resposta.bodyBytes));
+    final json = resposta.body.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(utf8.decode(resposta.bodyBytes));
     if (resposta.statusCode >= 200 && resposta.statusCode < 300) {
       return json as Map<String, dynamic>;
     }
@@ -120,9 +184,14 @@ class ApiCliente {
   }
 
   Exception erroDe(int status, Object? json) {
-    final mensagem = json is Map && json['erro'] != null ? json['erro'] as String : 'Erro HTTP $status';
+    final mensagem = json is Map && json['erro'] != null
+        ? json['erro'] as String
+        : 'Erro HTTP $status';
     if (status == 409 && json is Map && json['contaAtual'] is Map) {
-      return ConflitoDeSincronizacao(mensagem, ContaLida.daApi(Map<String, dynamic>.from(json['contaAtual'] as Map)));
+      return ConflitoDeSincronizacao(
+        mensagem,
+        ContaLida.daApi(Map<String, dynamic>.from(json['contaAtual'] as Map)),
+      );
     }
     return ErroApi(status, mensagem);
   }

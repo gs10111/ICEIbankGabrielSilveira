@@ -52,16 +52,20 @@ class Banco extends ChangeNotifier {
 
   bool get logado => sessao != null;
 
-  List<OperacaoPendente> get pendentes => sessao == null ? const [] : armazenamento.pendentes(sessao!.idConta);
+  List<OperacaoPendente> get pendentes =>
+      sessao == null ? const [] : armazenamento.pendentes(sessao!.idConta);
 
-  bool get temPendentes => pendentes.any((p) => p.estado == EstadoPendente.pendente);
+  bool get temPendentes =>
+      pendentes.any((p) => p.estado == EstadoPendente.pendente);
 
   /// Saldo confirmado pela agencia + efeito das operacoes que ainda vao ser sincronizadas.
   /// Conflitos e recusadas ficam de fora: a agencia ja disse que NAO aplicou.
   int? get saldoProvisorioCentavos {
     if (conta == null) return null;
     return conta!.saldoCentavos +
-        pendentes.where((p) => p.estado == EstadoPendente.pendente).fold(0, (soma, p) => soma + p.efeitoCentavos);
+        pendentes
+            .where((p) => p.estado == EstadoPendente.pendente)
+            .fold(0, (soma, p) => soma + p.efeitoCentavos);
   }
 
   /// Reabre a sessao guardada no aparelho — o app abre logado mesmo em modo aviao.
@@ -87,15 +91,15 @@ class Banco extends ChangeNotifier {
 
   /// Sem conexao, NAO lanca: fica com a ultima leitura guardada e marca `offline`.
   Future<void> atualizar() => _protegido(() async {
-        try {
-          await _guardar(await api.consultar(sessao!.idConta));
-          offline = false;
-        } on SemConexao {
-          offline = true;
-          conta ??= armazenamento.conta(sessao!.idConta);
-        }
-        notifyListeners();
-      });
+    try {
+      await _guardar(await api.consultar(sessao!.idConta));
+      offline = false;
+    } on SemConexao {
+      offline = true;
+      conta ??= armazenamento.conta(sessao!.idConta);
+    }
+    notifyListeners();
+  });
 
   Future<String> depositar(int centavos) => _escrever('DEPOSITO', centavos);
 
@@ -103,47 +107,57 @@ class Banco extends ChangeNotifier {
 
   /// Transferencia NAO entra na fila: o endpoint de sincronizacao so cobre deposito e
   /// saque, e uma transferencia mexe em duas contas, possivelmente em duas agencias.
-  Future<String> transferir(int idDestino, int centavos) => _protegido(() async {
+  Future<String> transferir(int idDestino, int centavos) =>
+      _protegido(() async {
         try {
-          final recibo = await api.transferir(sessao!.idConta, idDestino, centavos, _novaChave());
+          final recibo = await api.transferir(
+            sessao!.idConta,
+            idDestino,
+            centavos,
+            _novaChave(),
+          );
           await atualizar();
           return recibo.mensagem;
         } on SemConexao {
           offline = true;
           notifyListeners();
           throw const OperacaoRecusadaNoApp(
-              'Transferência exige conexão com a agência: ela não é guardada para depois.');
+            'Transferência exige conexão com a agência: ela não é guardada para depois.',
+          );
         }
       });
 
   Future<String> _escrever(String tipo, int centavos) => _protegido(() async {
-        // Com fila nao vazia, a operacao nova vai para o FIM da fila mesmo online:
-        // aplicar direto avancaria o vetor e faria todas as pendentes darem 409.
-        if (!temPendentes) {
-          try {
-            final lida = tipo == 'DEPOSITO'
-                ? await api.depositar(sessao!.idConta, centavos)
-                : await api.sacar(sessao!.idConta, centavos);
-            await _guardar(lida);
-            offline = false;
-            notifyListeners();
-            return '${tipo == 'DEPOSITO' ? 'Depósito' : 'Saque'} de ${formatarReais(centavos)} aplicado.';
-          } on SemConexao {
-            offline = true;
-          }
-        }
-        return _enfileirar(tipo, centavos);
-      });
+    // Com fila nao vazia, a operacao nova vai para o FIM da fila mesmo online:
+    // aplicar direto avancaria o vetor e faria todas as pendentes darem 409.
+    if (!temPendentes) {
+      try {
+        final lida = tipo == 'DEPOSITO'
+            ? await api.depositar(sessao!.idConta, centavos)
+            : await api.sacar(sessao!.idConta, centavos);
+        await _guardar(lida);
+        offline = false;
+        notifyListeners();
+        return '${tipo == 'DEPOSITO' ? 'Depósito' : 'Saque'} de ${formatarReais(centavos)} aplicado.';
+      } on SemConexao {
+        offline = true;
+      }
+    }
+    return _enfileirar(tipo, centavos);
+  });
 
   Future<String> _enfileirar(String tipo, int centavos) async {
     final base = conta;
     if (base == null || base.vetor.isEmpty) {
-      throw const OperacaoRecusadaNoApp('Sem conexão e sem nenhuma leitura da conta guardada no aparelho.');
+      throw const OperacaoRecusadaNoApp(
+        'Sem conexão e sem nenhuma leitura da conta guardada no aparelho.',
+      );
     }
     // A UI otimista mostra o saque como feito; nao deixa mostrar saldo negativo.
     if (tipo == 'SAQUE' && saldoProvisorioCentavos! < centavos) {
       throw OperacaoRecusadaNoApp(
-          'Saldo provisório insuficiente (${formatarReais(saldoProvisorioCentavos!)}) para sacar offline.');
+        'Saldo provisório insuficiente (${formatarReais(saldoProvisorioCentavos!)}) para sacar offline.',
+      );
     }
     await armazenamento.enfileirar(sessao!.idConta, tipo, centavos, base.vetor);
     notifyListeners();
@@ -161,27 +175,39 @@ class Banco extends ChangeNotifier {
         final op = armazenamento.pendente(chave);
         if (op == null || op.estado != EstadoPendente.pendente) continue;
         try {
-          final lida = await api.sincronizar(op.idConta, op.tipo, op.centavos, op.vetorConhecido);
+          final lida = await api.sincronizar(
+            op.idConta,
+            op.tipo,
+            op.centavos,
+            op.vetorConhecido,
+          );
           await armazenamento.remover(op);
           await _guardar(lida);
           await _rebasear(de: op.vetorConhecido, para: lida.vetor);
           offline = false;
         } on ConflitoDeSincronizacao catch (c) {
           await _guardar(c.contaAtual);
-          await armazenamento.substituir(op.com(
+          await armazenamento.substituir(
+            op.com(
               estado: EstadoPendente.conflito,
               mensagem: c.mensagem,
-              saldoRealCentavos: c.contaAtual.saldoCentavos));
+              saldoRealCentavos: c.contaAtual.saldoCentavos,
+            ),
+          );
           offline = false;
         } on SemConexao {
           offline = true;
           break;
         } on ErroApi catch (e) {
           if (e.tokenExpirado) {
-            sair('Sessão expirada. Entre de novo — as operações pendentes continuam guardadas.');
+            sair(
+              'Sessão expirada. Entre de novo — as operações pendentes continuam guardadas.',
+            );
             return;
           }
-          await armazenamento.substituir(op.com(estado: EstadoPendente.recusada, mensagem: e.mensagem));
+          await armazenamento.substituir(
+            op.com(estado: EstadoPendente.recusada, mensagem: e.mensagem),
+          );
         }
         notifyListeners();
       }
@@ -193,7 +219,9 @@ class Banco extends ChangeNotifier {
 
   /// A pessoa leu o saldo real e decidiu mandar de novo: vai com o vetor que veio no 409.
   Future<void> reenviar(OperacaoPendente op) async {
-    await armazenamento.substituir(op.com(estado: EstadoPendente.pendente, vetorConhecido: conta!.vetor));
+    await armazenamento.substituir(
+      op.com(estado: EstadoPendente.pendente, vetorConhecido: conta!.vetor),
+    );
     notifyListeners();
     await sincronizarPendentes();
   }
@@ -223,9 +251,13 @@ class Banco extends ChangeNotifier {
   /// foi a propria operacao do app, que ele sabe exatamente qual foi. As seguintes
   /// passam a carregar o vetor novo; sem isto, so a primeira passaria e o resto daria
   /// 409 por causa de si mesmo.
-  Future<void> _rebasear({required List<int> de, required List<int> para}) async {
+  Future<void> _rebasear({
+    required List<int> de,
+    required List<int> para,
+  }) async {
     for (final outra in pendentes) {
-      if (outra.estado == EstadoPendente.pendente && listEquals(outra.vetorConhecido, de)) {
+      if (outra.estado == EstadoPendente.pendente &&
+          listEquals(outra.vetorConhecido, de)) {
         await armazenamento.substituir(outra.com(vetorConhecido: para));
       }
     }

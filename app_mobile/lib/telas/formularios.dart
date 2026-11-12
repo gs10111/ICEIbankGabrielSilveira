@@ -10,7 +10,11 @@ class Pedido {
   const Pedido(this.centavos, [this.destino]);
 }
 
-Future<Pedido?> pedirValor(BuildContext context, String titulo, {bool comDestino = false}) {
+Future<Pedido?> pedirValor(
+  BuildContext context,
+  String titulo, {
+  bool comDestino = false,
+}) {
   return showModalBottomSheet<Pedido>(
     context: context,
     isScrollControlled: true,
@@ -48,7 +52,12 @@ class _FormularioState extends State<_Formulario> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        24,
+        24,
+        24 + MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -60,7 +69,9 @@ class _FormularioState extends State<_Formulario> {
               controller: _destino,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                  labelText: 'Conta de destino', helperText: 'Pode ser de outra agência (conta % 3)'),
+                labelText: 'Conta de destino',
+                helperText: 'Pode ser de outra agência (conta % 3)',
+              ),
             ),
             const SizedBox(height: 12),
           ],
@@ -68,7 +79,10 @@ class _FormularioState extends State<_Formulario> {
             controller: _valor,
             autofocus: !widget.comDestino,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: 'Valor (R\$)', errorText: _erro),
+            decoration: InputDecoration(
+              labelText: 'Valor (R\$)',
+              errorText: _erro,
+            ),
             onSubmitted: (_) => _confirmar(),
           ),
           const SizedBox(height: 16),
