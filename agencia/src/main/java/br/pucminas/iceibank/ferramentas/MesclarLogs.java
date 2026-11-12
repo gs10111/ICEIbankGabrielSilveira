@@ -146,7 +146,7 @@ public final class MesclarLogs {
         return ((List<Number>) lista).stream().map(Number::intValue).toList();
     }
 
-    private static List<Map<String, Object>> lerTodos(Path pasta) {
+    static List<Map<String, Object>> lerTodos(Path pasta) {
         if (!Files.isDirectory(pasta)) {
             throw new IllegalArgumentException("pasta de dados nao encontrada: " + pasta.toAbsolutePath());
         }

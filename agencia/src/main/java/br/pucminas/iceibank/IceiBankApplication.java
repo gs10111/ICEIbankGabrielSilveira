@@ -1,5 +1,6 @@
 package br.pucminas.iceibank;
 
+import br.pucminas.iceibank.ferramentas.HistoricoLideranca;
 import br.pucminas.iceibank.ferramentas.MesclarLogs;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -14,6 +15,11 @@ public class IceiBankApplication {
         //   java -jar target/iceibank-agencia-1.0.0.jar --mesclar-logs [pasta]
         if (args.length > 0 && args[0].equals("--mesclar-logs")) {
             MesclarLogs.main(java.util.Arrays.copyOfRange(args, 1, args.length));
+            return;
+        }
+        // Sprint 3, Parte C:  java -jar target/iceibank-agencia-1.0.0.jar --historico-lideranca [pasta]
+        if (args.length > 0 && args[0].equals("--historico-lideranca")) {
+            HistoricoLideranca.main(java.util.Arrays.copyOfRange(args, 1, args.length));
             return;
         }
         SpringApplication.run(IceiBankApplication.class, args);
