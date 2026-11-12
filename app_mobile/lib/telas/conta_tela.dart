@@ -147,7 +147,7 @@ class _SaldoCartao extends StatelessWidget {
                 key: const Key('saldo-provisorio'),
                 avatar: const Icon(Icons.schedule, size: 18),
                 label: Text(
-                  'Provisório: inclui $emEspera operação(ões) pendente(s)',
+                  'Provisório · $emEspera pendente${emEspera > 1 ? 's' : ''}',
                 ),
                 backgroundColor: Theme.of(context)
                     .colorScheme

@@ -60,7 +60,7 @@ class PainelLideranca extends StatelessWidget {
                           ),
                           if (monitor.atualizadoEm != null)
                             Text(
-                              '${monitor.consultadaEm == null ? '' : 'consultada na agência ${monitor.consultadaEm} · '}'
+                              '${monitor.nenhumaRespondeu ? 'tentou as 3 agências · ' : 'consultada na agência ${monitor.consultadaEm} · '}'
                               'às ${_hora(monitor.atualizadoEm!)}',
                               style: texto.bodySmall,
                             ),
