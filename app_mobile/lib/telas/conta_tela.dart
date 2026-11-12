@@ -140,7 +140,6 @@ class _SaldoCartao extends StatelessWidget {
               provisorio == null ? '—' : formatarReais(provisorio),
               style: texto.displaySmall,
             ),
-            // UI otimista com o aviso junto: o numero grande pode ainda nao ser real.
             if (emEspera > 0) ...[
               const SizedBox(height: 4),
               Chip(
@@ -194,7 +193,6 @@ class _AvisoOffline extends StatelessWidget {
   }
 }
 
-/// O 409 (e qualquer recusa) VISIVEL: o que nao foi aplicado, o saldo real, e a escolha.
 class _CartaoRecusa extends StatelessWidget {
   final Banco banco;
   final OperacaoPendente op;

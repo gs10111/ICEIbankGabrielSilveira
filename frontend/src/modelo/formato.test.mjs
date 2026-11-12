@@ -1,9 +1,3 @@
-/**
- * O painel escolhe cor e sinal pelo tipo do evento. Eventos que NAO movem dinheiro
- * (a reentrega ignorada, o credito que falhou) apareciam como debito, porque o sinal
- * so tinha dois valores possiveis. "− 40,00" ao lado de "Reentrega ignorada" e uma
- * afirmacao falsa na tela: nenhum valor saiu da conta.
- */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 

@@ -4,14 +4,6 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'banco.dart';
 
-/// SPRINT 3, Parte F — dispara a sincronizacao sozinho, sem a pessoa apertar nada.
-///
-/// Dois gatilhos, porque um so nao basta:
-///  1. connectivity_plus avisa quando a rede VOLTA (saiu do modo aviao, Wi-Fi religou).
-///     E o caminho rapido: sincroniza no mesmo instante.
-///  2. um timer de 5 s enquanto houver pendente ou o app estiver offline. O plugin so
-///     sabe se o aparelho tem rede, nao se a AGENCIA responde: com Wi-Fi ligado e a
-///     agencia derrubada nao chega evento nenhum quando ela volta.
 class GatilhoDeSincronizacao {
   final Banco banco;
   final Stream<List<ConnectivityResult>> conectividade;
@@ -39,11 +31,9 @@ class GatilhoDeSincronizacao {
     try {
       await banco.sincronizarPendentes();
       if (banco.logado) {
-        await banco.atualizar(); // traz o saldo confirmado e limpa o "offline"
+        await banco.atualizar();
       }
-    } catch (_) {
-      // erro de API ja virou estado no Banco (sessao expirada, conflito); nada a fazer aqui
-    }
+    } catch (_) {}
   }
 
   void parar() {

@@ -3,9 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-/// Uma agencia em memoria que se comporta como o backend do Sprint 3: guarda saldo e
-/// vetor, avanca o vetor a cada escrita e recusa /sincronizar com vetor diferente (409).
-/// `online = false` simula modo aviao: toda requisicao falha antes de chegar.
 class AgenciaFalsa {
   bool online = true;
   bool tokenValido = true;
@@ -15,7 +12,6 @@ class AgenciaFalsa {
 
   AgenciaFalsa({this.saldo = 100});
 
-  /// Alguem mexeu na conta por outro caminho (frontend web, Invoke-RestMethod).
   void mudarPorOutroCaminho(double deposito) {
     saldo += deposito;
     vetor = [vetor[0] + 1, vetor[1], vetor[2]];

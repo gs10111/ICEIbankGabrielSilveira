@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { AGENCIAS, agenciaResponsavel } from '../modelo/agencias.js'
 import { Alerta, Blueprint, Campo, Tag } from './componentes/Base.jsx'
 
-/** VIEW — transferencia local e entre agencias, com a rota calculada em tempo real. */
 export default function Transferencia({ contaPadrao, agenciaEntrada, malha, alerta, aoConfirmar }) {
   const [idOrigem, setIdOrigem] = useState(String(contaPadrao))
   const [idDestino, setIdDestino] = useState('')
@@ -66,7 +65,6 @@ export default function Transferencia({ contaPadrao, agenciaEntrada, malha, aler
             </div>
           ) : null}
 
-          {/* FUNCIONALIDADE ADICIONAL 2 — chave enviada no header Idempotency-Key. */}
           <label style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center',
             fontSize: 12, margin: 'var(--space-4) 0' }}>
             <input type="checkbox" checked={usarIdempotencia}

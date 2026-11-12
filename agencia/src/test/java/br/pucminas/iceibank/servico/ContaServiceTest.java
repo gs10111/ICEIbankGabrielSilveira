@@ -28,7 +28,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ContaServiceTest {
-
     private static final int ID_AGENCIA = 0;
 
     private static final AgenciaProperties PROPRIEDADES = new AgenciaProperties(
@@ -47,8 +46,6 @@ class ContaServiceTest {
         servico = new ContaService(
                 PROPRIEDADES, new Particionador(3), repositorio, new RelogioVetorial(ID_AGENCIA, 3), registro);
     }
-
-    // ---------- abertura ----------
 
     @Test
     @DisplayName("abrir cria a conta e ela pode ser consultada depois")
@@ -91,8 +88,6 @@ class ContaServiceTest {
         assertThat(registro.eventos.get(0).carimbo()).isEqualTo(vetor(1, 0, 0));
     }
 
-    // ---------- consulta ----------
-
     @Test
     @DisplayName("consultar devolve a conta cadastrada")
     void consultaDevolveAConta() {
@@ -106,8 +101,6 @@ class ContaServiceTest {
     void consultaInexistenteEhRejeitada() {
         assertThrows(ContaNaoEncontradaException.class, () -> servico.consultar(3));
     }
-
-    // ---------- deposito e saque ----------
 
     @Test
     @DisplayName("deposito aumenta o saldo da conta")
@@ -140,8 +133,6 @@ class ContaServiceTest {
         assertThrows(SaldoInsuficienteException.class,
                 () -> servico.sacar(0, new BigDecimal("150.00")));
     }
-
-    // ---------- relogio de Lamport aplicado ----------
 
     @Test
     @DisplayName("abrir conta registra evento CRIAR_CONTA carimbado com 1")
@@ -178,8 +169,6 @@ class ContaServiceTest {
         assertThat(registro.eventos).hasSize(1);
     }
 
-    // ---------- funcionalidade adicional 1: historico ----------
-
     @Test
     @DisplayName("historico devolve os eventos da conta, do mais recente para o mais antigo")
     void historicoDevolveEventosDaConta() {
@@ -209,8 +198,6 @@ class ContaServiceTest {
         assertThrows(ContaNaoEncontradaException.class, () -> servico.historico(0, 10));
     }
 
-    // ---------- Sprint 3, Parte E: sincronizacao offline-first ----------
-
     @Test
     @DisplayName("sincronizar com o vetor que a agencia ainda tem aplica a operacao e registra SINCRONIZACAO_OFFLINE")
     void sincronizarComVetorAtualAplica() {
@@ -228,7 +215,7 @@ class ContaServiceTest {
     void sincronizarComVetorAntigoDaConflito() {
         servico.abrir(0, "Ana", new BigDecimal("100.00"));
         CarimboVetorial lidoPeloApp = servico.vetorAtual();
-        servico.depositar(0, new BigDecimal("50.00"));          // aconteceu enquanto o app estava offline
+        servico.depositar(0, new BigDecimal("50.00"));
 
         ConflitoDeSincronizacaoException conflito = assertThrows(ConflitoDeSincronizacaoException.class,
                 () -> servico.sincronizar(0, "SAQUE", new BigDecimal("120.00"), lidoPeloApp));
@@ -241,7 +228,7 @@ class ContaServiceTest {
     @Test
     @DisplayName("vetor CONCORRENTE ao da agencia tambem e conflito: so IGUAIS e seguro")
     void vetorConcorrenteDaConflito() {
-        servico.abrir(0, "Ana", new BigDecimal("100.00"));      // agencia em [1,0,0]
+        servico.abrir(0, "Ana", new BigDecimal("100.00"));
 
         assertThrows(ConflitoDeSincronizacaoException.class, () -> servico.sincronizar(
                 0, "DEPOSITO", BigDecimal.TEN, new CarimboVetorial(List.of(0, 4, 0))));
@@ -279,7 +266,6 @@ class ContaServiceTest {
                 () -> servico.sincronizar(0, "PIX", BigDecimal.TEN, servico.vetorAtual()));
     }
 
-    /** Registro de eventos que fica na memoria, para o teste nao tocar disco. */
     private static class RegistroEmLista extends RegistroDeEventos {
         final List<Evento> eventos = new ArrayList<>();
 
@@ -316,7 +302,6 @@ class ContaServiceTest {
         }
     }
 
-    /** Atalho: vetor(1, 0, 0) em vez de new CarimboVetorial(List.of(1, 0, 0)). */
     private static CarimboVetorial vetor(int... valores) {
         return new CarimboVetorial(java.util.Arrays.stream(valores).boxed().toList());
     }

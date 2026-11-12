@@ -1,11 +1,3 @@
-/**
- * PARTE D no frontend — a mesma analise causal que o `--mesclar-logs` faz no backend.
- *
- * Ela mora em `modelo/` e nao dentro do JSX de proposito: assim ela e uma funcao
- * pura, testavel com o runner do Node, e a tela so exibe o que ela devolve. Fosse
- * um laco dentro do componente, so um teste de renderizacao alcancaria — e o
- * projeto nao tem (nem precisa de) um.
- */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 

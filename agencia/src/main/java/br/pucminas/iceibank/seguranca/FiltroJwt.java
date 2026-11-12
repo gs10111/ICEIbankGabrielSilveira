@@ -13,30 +13,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * PARTE F — protecao das rotas, escrita a mao (sem Spring Security).
- *
- * Escolha deliberada: com ~60 linhas visiveis da para explicar exatamente o que
- * acontece em cada requisicao. O Spring Security faria o mesmo com uma cadeia de
- * filtros, providers e configuracao que eu nao conseguiria defender linha a linha
- * — e o roteiro exige poder defender o que foi entregue.
- *
- * REGRAS:
- *  - /auth/ (qualquer)     publico (senao ninguem consegue obter token)
- *  - /bully/lider          publico (heartbeat entre agencias e painel do app mobile)
- *  - /interno, /bully/eleicao, /bully/coordenador
- *                           exigem o header X-Agencia-Token (e SO ele)
- *  - todo o resto           exige Authorization: Bearer <jwt> valido
- *
- * DECISAO (pergunta 11.1.5 do roteiro): a chamada interna NAO carrega JWT de usuario.
- * Um JWT identifica uma PESSOA; quem chama /interno e um PROCESSO. Repassar o
- * token do usuario daria a uma agencia o poder de agir como ele em qualquer outra —
- * o problema classico do "confused deputy". Alem disso o token do usuario expira em
- * 15 min e a comunicacao entre agencias precisa funcionar independentemente disso.
- * Usamos um segredo de servico compartilhado (X-Agencia-Token), vindo do ambiente.
- */
 public class FiltroJwt extends OncePerRequestFilter {
-
     private static final String PREFIXO = "Bearer ";
     public static final String ATRIBUTO_AUTENTICADO = "usuarioAutenticado";
 
@@ -59,9 +36,6 @@ public class FiltroJwt extends OncePerRequestFilter {
             return;
         }
 
-        // Rota interna: autentica com o segredo de servico, NUNCA com JWT de usuario.
-        // O teste vem depois de checar o caminho de proposito — o segredo tem default
-        // no application.yml, entao ele nao pode abrir rota nenhuma fora desta lista.
         if (ehRotaInterna(caminho)) {
             if (tokenDeServicoConfere(requisicao)) {
                 corrente.doFilter(requisicao, resposta);
@@ -88,25 +62,10 @@ public class FiltroJwt extends OncePerRequestFilter {
     }
 
     private boolean ehPublico(String caminho) {
-        // /status e health-check: nao revela saldo nem titular. /bully/lider tambem nao:
-        // so diz qual agencia e a lider — e e o que o heartbeat usa para saber se ela esta viva.
         return caminho.startsWith("/auth/") || caminho.equals("/status") || caminho.equals("/error")
                 || caminho.equals("/bully/lider");
     }
 
-    /**
-     * As UNICAS rotas que o segredo de servico abre:
-     *  - /interno          a leitura que o extrato consolidado faz nas outras agencias
-     *  - /bully/eleicao e /bully/coordenador   as mensagens do Bully (Sprint 3). Sem isto,
-     *    qualquer um que achasse a URL forjaria um anuncio de coordenador — ver a
-     *    pergunta 5.5.3 do roteiro.
-     *
-     * No Sprint 1 havia tambem /creditar-remoto aqui. Ele saiu no Sprint 2: creditar
-     * deixou de ser uma chamada HTTP e virou uma MENSAGEM, que nao passa pelo filtro
-     * nem por rota nenhuma. Quem autentica ali e o proprio broker (ver RESPOSTAS.md,
-     * pergunta 7.5.3).
-     * Qualquer outra rota exige JWT de usuario, mesmo com o header presente.
-     */
     private boolean ehRotaInterna(String caminho) {
         return caminho.endsWith("/interno")
                 || caminho.equals("/bully/eleicao") || caminho.equals("/bully/coordenador");

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { hora, vetor } from '../modelo/formato.js'
 import { Alerta, Tag } from './componentes/Base.jsx'
 
-/** VIEW — FUNCIONALIDADE ADICIONAL 1: historico de eventos por conta. */
 export default function Historico({ contaPadrao, eventos, alerta, aoBuscar }) {
   const [idConta, setIdConta] = useState(String(contaPadrao))
 

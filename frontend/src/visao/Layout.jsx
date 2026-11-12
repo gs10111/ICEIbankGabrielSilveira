@@ -18,14 +18,12 @@ const MENU = [
   ]},
 ]
 
-/** VIEW — moldura fixa: barra institucional, barra do produto e menu lateral. */
 export default function Layout({ sessao, segundosRestantes, agenciaEntrada, aoTrocarAgencia,
                                  relogioDaAgencia, tela, aoNavegar, aoSair, aoExpirarToken, children }) {
   const tokenAcabando = segundosRestantes < 20
 
   return (
     <div>
-      {/* barra institucional */}
       <div style={{ background: 'var(--color-accent-900)', color: 'var(--color-bg)',
         padding: 'var(--space-2) 0', fontSize: 12 }}>
         <div className="container" style={{ display: 'flex', alignItems: 'center',
@@ -40,7 +38,6 @@ export default function Layout({ sessao, segundosRestantes, agenciaEntrada, aoTr
         </div>
       </div>
 
-      {/* barra do produto */}
       <div style={{ borderBottom: '1px solid var(--color-divider)' }}>
         <div className="container nav" style={{ padding: 'var(--space-4) var(--space-8)' }}>
           <span className="nav-brand">ICEIBANK</span>
@@ -63,7 +60,6 @@ export default function Layout({ sessao, segundosRestantes, agenciaEntrada, aoTr
         </div>
       </div>
 
-      {/* corpo */}
       <div className="container" style={{ display: 'grid',
         gridTemplateColumns: '208px minmax(0, 1fr)', gap: 'calc(var(--space-8) * 1.3)',
         padding: 'var(--space-6) var(--space-8)' }}>

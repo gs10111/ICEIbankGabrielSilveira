@@ -9,15 +9,11 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 @SpringBootApplication
 @ConfigurationPropertiesScan
 public class IceiBankApplication {
-
     public static void main(String[] args) {
-        // Atalho para a ferramenta da Parte E, sem subir o servidor:
-        //   java -jar target/iceibank-agencia-1.0.0.jar --mesclar-logs [pasta]
         if (args.length > 0 && args[0].equals("--mesclar-logs")) {
             MesclarLogs.main(java.util.Arrays.copyOfRange(args, 1, args.length));
             return;
         }
-        // Sprint 3, Parte C:  java -jar target/iceibank-agencia-1.0.0.jar --historico-lideranca [pasta]
         if (args.length > 0 && args[0].equals("--historico-lideranca")) {
             HistoricoLideranca.main(java.util.Arrays.copyOfRange(args, 1, args.length));
             return;

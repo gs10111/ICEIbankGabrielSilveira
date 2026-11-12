@@ -10,26 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * SPRINT 3, Parte C — a linha do tempo de liderancas, reconstruida dos logs das 3 agencias.
- *
- * Equivalente ao historico-lideranca.js do roteiro. Le a mesma pasta de .jsonl que o
- * MesclarLogs, filtra os eventos do Bully e ordena por hora de parede.
- *
- * Por que hora de parede e nao vetor: aqui a pergunta e "quem era a lider a partir de
- * quando", que e uma pergunta sobre o tempo FISICO. Os relogios das 3 agencias sao o
- * do mesmo computador no laboratorio, entao a ordem e confiavel; em maquinas diferentes
- * nao seria (e a razao de existir relogio logico).
- *
- * A mais do roteiro: separa TROCA de lider de REAFIRMACAO. Na tempestade da subida a
- * agencia 2 declara TORNOU_LIDER varias vezes; contar cada declaracao como troca
- * superestimaria a instabilidade (pergunta 7.3).
- *
- * Rodar:
- *   java -jar target/iceibank-agencia-1.0.0.jar --historico-lideranca [pasta]
- */
 public final class HistoricoLideranca {
-
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private static final Set<String> TIPOS_BULLY = Set.of(

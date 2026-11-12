@@ -1,17 +1,9 @@
-/* =============================================================================
-   Design system "Industry" — wireframe tecnico, azul-aco sobre fundo claro.
-   Retune institucional PUC Minas: accent = Pantone 302C (#085693),
-   rampa neutra ancorada no Pantone 445C (#575756).
-   ========================================================================== */
-
 :root {
-  /* superficie */
   --color-bg: #f2f2f3;
   --color-surface: #e9e9ea;
   --color-text: #1d1f20;
   --color-divider: rgba(29, 31, 32, 0.16);
 
-  /* accent — azul institucional PUC Minas */
   --color-accent: #085693;
   --color-accent-100: #eaf1f8;
   --color-accent-200: #cfe0ef;
@@ -19,22 +11,19 @@
   --color-accent-400: #6f9dc6;
   --color-accent-500: #3d7ab0;
   --color-accent-600: #085693;
-  --color-accent-700: #06497c;   /* texto sobre claro: accent puro nao tem 4.5:1 */
-  --color-accent-800: #053961;   /* estados de erro */
-  --color-accent-900: #042846;   /* barra institucional */
+  --color-accent-700: #06497c;
+  --color-accent-800: #053961;
+  --color-accent-900: #042846;
 
-  /* neutros — cinza institucional 445C */
   --color-neutral-500: #969695;
   --color-neutral-600: #787877;
   --color-neutral-700: #575756;
   --color-neutral-800: #3f3f3e;
   --color-neutral-900: #2a2a29;
 
-  /* tipografia */
   --font-heading: "Barlow Condensed", "Arial Narrow", sans-serif;
   --font-body: "Barlow", system-ui, -apple-system, sans-serif;
 
-  /* espacamento — escala do sistema em densidade 0.85x */
   --space-1: 3px;
   --space-2: 7px;
   --space-3: 10px;
@@ -73,8 +62,6 @@ h6 {
 p { margin: 0; }
 a { color: var(--color-accent-700); }
 
-/* ---------------------------------------------------------------- blueprint */
-/* Moldura tecnica: borda hairline + marcas de registro "+" nos quatro cantos. */
 .blueprint { position: relative; border: 1px solid var(--color-divider); }
 .blueprint > .corner {
   position: absolute; width: 7px; height: 7px; pointer-events: none;
@@ -90,8 +77,6 @@ a { color: var(--color-accent-700); }
 .corner.bl { bottom: -4px; left: -4px; }
 .corner.br { bottom: -4px; right: -4px; }
 
-/* -------------------------------------------------------------------- card */
-/* Cartoes sao DESENHOS DE LINHA: sem preenchimento, sem cantos arredondados. */
 .card {
   border: 1px solid var(--color-divider);
   background: transparent;
@@ -107,7 +92,6 @@ a { color: var(--color-accent-700); }
 .card-body { font-size: 13px; color: var(--color-neutral-700); }
 .card-meta { font-size: 11px; color: var(--color-neutral-600); font-variant-numeric: tabular-nums; }
 
-/* ------------------------------------------------------------------ botoes */
 .btn {
   font-family: var(--font-heading);
   font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;
@@ -121,14 +105,12 @@ a { color: var(--color-accent-700); }
 .btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* O botao primario e o UNICO objeto solido da tela. */
 .btn-primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
 .btn-primary:hover { background: var(--color-accent-700); border-color: var(--color-accent-700); color: #fff; }
 .btn-secondary { border-color: var(--color-divider); }
 .btn-ghost { border-color: transparent; padding: var(--space-1) var(--space-3); }
 .btn-block { display: block; width: 100%; }
 
-/* ---------------------------------------------------------------- campos */
 .field { display: block; margin-bottom: var(--space-4); }
 .field > label {
   display: block; font-size: 11px; font-weight: 600; text-transform: uppercase;
@@ -142,7 +124,6 @@ a { color: var(--color-accent-700); }
 }
 .input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 0; border-color: var(--color-accent); }
 
-/* ------------------------------------------------------- segmentado (radio) */
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--color-divider); }
 .seg-opt { position: relative; }
 .seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
@@ -155,7 +136,6 @@ a { color: var(--color-accent-700); }
 .seg-opt input:checked + span { background: var(--color-accent-100); color: var(--color-accent-700); }
 .seg-opt input:focus-visible + span { outline: 2px solid var(--color-accent); outline-offset: -2px; }
 
-/* ------------------------------------------------------------------- tags */
 .tag {
   display: inline-block; font-family: var(--font-heading);
   font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em;
@@ -166,7 +146,6 @@ a { color: var(--color-accent-700); }
 .tag-outline { border-color: var(--color-divider); color: var(--color-neutral-700); }
 .tag-erro { border-color: var(--color-accent-800); color: var(--color-accent-800); }
 
-/* ------------------------------------------------------------------ tabela */
 .table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .table th {
   font-family: var(--font-heading); font-size: 10px; font-weight: 600;
@@ -182,15 +161,12 @@ a { color: var(--color-accent-700); }
 .num { font-variant-numeric: tabular-nums; }
 .text-muted { color: var(--color-neutral-600); }
 
-/* --------------------------------------------------------------------- nav */
 .nav { display: flex; align-items: center; gap: var(--space-5); }
 .nav-brand {
   font-family: var(--font-heading); font-size: 22px; font-weight: 700;
   letter-spacing: 0.1em; text-transform: uppercase;
 }
 
-/* ------------------------------------------------------- grade de fundo */
-/* Grade do sistema em duas escalas, dissolvida por uma mascara radial. */
 .grade {
   position: absolute; inset: 0; pointer-events: none; z-index: 0;
   background-image:
@@ -203,8 +179,6 @@ a { color: var(--color-accent-700); }
   mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
 }
 
-/* ------------------------------------------------------------- alerta */
-/* Um componente para sucesso e erro: barra a esquerda, sem caixa preenchida. */
 .alerta { border-left: 2px solid var(--color-accent); padding-left: var(--space-4); margin: var(--space-4) 0; }
 .alerta.erro { border-left-color: var(--color-accent-800); }
 .alerta .alerta-titulo {
@@ -215,7 +189,6 @@ a { color: var(--color-accent-700); }
 .alerta .alerta-http { font-size: 10px; color: var(--color-neutral-600); margin-left: var(--space-2); }
 .alerta .alerta-texto { font-size: 14px; }
 
-/* --------------------------------------------------------------- utilitario */
 .container { max-width: 1240px; margin: 0 auto; }
 .regua { border: 0; border-top: 1px solid var(--color-divider); margin: var(--space-5) 0; }
 .valor-grande {

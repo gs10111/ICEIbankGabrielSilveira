@@ -11,16 +11,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Observabilidade da agencia — alimenta a "malha de agencias" e a linha do tempo
- * do frontend (Parte E vista pela interface).
- *
- * /status e publico de proposito: e um health-check. Nao expoe saldo nem titular,
- * so o estado operacional da agencia.
- */
 @RestController
 public class StatusController {
-
     private final ContaService contaService;
     private final RegistroDeEventos consultaEventos;
     private final AgenciaProperties propriedades;
@@ -41,9 +33,6 @@ public class StatusController {
 
     @GetMapping("/status")
     public Status status() {
-        // Pergunta ao proprio relogio. Antes deduzia do ultimo evento do arquivo, o
-        // que so funcionava enquanto o ultimo carimbo fosse o maior — e depois de um
-        // restart ele nao e.
         return new Status(propriedades.id(), propriedades.nome(), propriedades.total(),
                 contaService.quantidadeDeContas(), consultaEventos.quantidade(), relogio.valorAtual().valores());
     }

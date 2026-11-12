@@ -1,4 +1,3 @@
-# Config usada só nos testes: agencia 0, pasta de dados temporária.
 agencia:
   id: 0
   total: 3
@@ -10,16 +9,11 @@ agencia:
 server:
   port: 0
 
-# Sem eleicao automatica nos testes: o ServicoBully e exercitado direto, com uma rede
-# em memoria. Ligado, cada contexto Spring dispararia eleicoes contra localhost:4016-4018.
 bully:
   timeout-ms: 200
   intervalo-ms: 3000
   ativo: false
 
-# Os testes nao falam com broker nenhum. A conexao do Spring AMQP e preguicosa
-# (so conecta no primeiro uso), entao os beans sobem sem problema; o que precisa
-# ser desligado e o CONSUMIDOR, que tentaria conectar no startup.
 mensageria:
   url: amqp://guest:guest@localhost:5672/%2f
   exchange: iceibank.eventos-de-teste

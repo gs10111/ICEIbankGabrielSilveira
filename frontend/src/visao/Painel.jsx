@@ -2,7 +2,6 @@ import { AGENCIAS } from '../modelo/agencias.js'
 import { dinheiro, hora, rotuloDoEvento, sinalDoEvento, valorDoEvento, vetor } from '../modelo/formato.js'
 import { Blueprint, IconeDeposito, IconeSaque, IconeTransferencia, Tag } from './componentes/Base.jsx'
 
-/** VIEW — saldo, ultimos lancamentos e a malha de agencias. */
 export default function Painel({ conta, eventos, malha, agenciaEntrada, aoNavegar }) {
   return (
     <>

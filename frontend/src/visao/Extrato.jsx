@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { dinheiro } from '../modelo/formato.js'
 import { Alerta, Blueprint, Campo, Tag } from './componentes/Base.jsx'
 
-/** VIEW — FUNCIONALIDADE ADICIONAL 3: soma saldos de contas em agencias diferentes. */
 export default function Extrato({ contaPadrao, extrato, alerta, aoConsolidar }) {
   const [contas, setContas] = useState(`${contaPadrao},4`)
 

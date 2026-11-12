@@ -10,28 +10,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
-/**
- * Adapter da idempotencia. Sprint 4: Redis ou tabela com TTL.
- *
- * Guarda o RECIBO, nao um booleano: o reenvio precisa devolver a MESMA resposta,
- * senao o cliente ve comportamentos diferentes para a mesma requisicao.
- *
- * computeIfAbsent e atomico por chave — resolve a corrida de duas requisicoes
- * simultaneas com a mesma chave, que um `if (contains) ... else put(...)` deixaria passar.
- * Se a operacao lancar, nada e gravado: falha nao deve ser memorizada como sucesso.
- */
 @Component
 public class RegistroDeIdempotencia {
-
     private record Registrado(OrdemDeTransferencia ordem, Recibo recibo) { }
 
     private final Map<String, Registrado> porChave = new ConcurrentHashMap<>();
 
-    /**
-     * A chave e escolhida pelo CLIENTE, entao ela so pode valer dentro da conta que a
-     * enviou. Fosse global por agencia, "op-1" de uma pessoa devolveria o recibo de
-     * outra — ou barraria a transferencia legitima dela com 409.
-     */
     private static String escopo(String chave, OrdemDeTransferencia ordem) {
         return ordem.idOrigem() + ":" + chave;
     }
@@ -44,8 +28,6 @@ public class RegistroDeIdempotencia {
             return new Registrado(ordem, operacao.get());
         });
 
-        // Mesma chave com dados de negocio diferentes: o cliente errou. Gritar e melhor
-        // que devolver calado o recibo de outra operacao.
         if (!registrado.ordem().mesmaOperacaoQue(ordem)) {
             throw new ChaveIdempotenciaConflitanteException(
                     "chave de idempotencia '" + chave + "' ja foi usada para outra transferencia"

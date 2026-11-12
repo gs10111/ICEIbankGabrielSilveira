@@ -24,15 +24,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * PARTE C — o lado que CONSOME.
- *
- * O consumidor precisa fazer duas coisas certas, e a segunda e a que o roteiro pede
- * para observar na tarefa 7.4: aplicar o credito quando da, e nao travar a fila
- * quando nao da.
- */
 class ConsumidorDeCreditosTest {
-
     private static final AgenciaProperties AGENCIA_1 = new AgenciaProperties(
             1, 3,
             List.of("http://localhost:4016", "http://localhost:4017", "http://localhost:4018"),
@@ -59,24 +51,19 @@ class ConsumidorDeCreditosTest {
     @DisplayName("aplica o credito e sincroniza o vetor pela regra 3")
     void aplicaOCreditoESincronizaOVetor() {
         repositorio.inserir(new Conta(1, "Bruno", new BigDecimal("800.00")));
-        relogio.eventoLocal();                                     // agencia 1 em [0,1,0]
+        relogio.eventoLocal();
 
         consumidor.aoReceberCredito(new CreditoRemoto(1, new BigDecimal("40.00"), List.of(4, 0, 0), 0));
 
         assertThat(repositorio.buscar(1).orElseThrow().saldo()).isEqualByComparingTo("840.00");
         Evento credito = registro.eventos.get(registro.eventos.size() - 1);
         assertThat(credito.tipo()).isEqualTo("TRANSFERENCIA_CREDITO_REMOTO");
-        // max([0,1,0], [4,0,0]) = [4,1,0]; +1 na propria posicao -> [4,2,0]
         assertThat(credito.carimbo()).isEqualTo(new CarimboVetorial(List.of(4, 2, 0)));
     }
 
     @Test
     @DisplayName("conta que nao existe: registra CREDITO_REMOTO_FALHOU e NAO relanca")
     void contaInexistenteNaoTravaAFila() {
-        // Cenario da tarefa 7.4: a agencia reiniciou antes de consumir, e as contas
-        // vivem em memoria. A mensagem chegou; nao ha onde aplicar.
-        // Relancar devolveria a mensagem para a fila, e ela voltaria para sempre —
-        // a conta 7 nao vai passar a existir sozinha.
         consumidor.aoReceberCredito(new CreditoRemoto(7, new BigDecimal("25.00"), List.of(6, 0, 0), 0));
 
         assertThat(registro.eventos).extracting(Evento::tipo).containsExactly("CREDITO_REMOTO_FALHOU");
@@ -89,8 +76,6 @@ class ConsumidorDeCreditosTest {
     @Test
     @DisplayName("conta de outra particao: registra a falha, nao explode")
     void contaDeOutraParticaoNaoTravaAFila() {
-        // conta 2 pertence a agencia 2; esta e a agencia 1. So chegaria aqui por
-        // routing key errada — mas o consumidor nao pode derrubar a fila por isso.
         consumidor.aoReceberCredito(new CreditoRemoto(2, new BigDecimal("10.00"), List.of(1, 0, 0), 0));
 
         assertThat(registro.eventos).extracting(Evento::tipo).containsExactly("CREDITO_REMOTO_FALHOU");
@@ -99,9 +84,6 @@ class ConsumidorDeCreditosTest {
     @Test
     @DisplayName("reentrega da MESMA mensagem credita uma vez so")
     void reentregaNaoCreditaDuasVezes() {
-        // A entrega do RabbitMQ e AT-LEAST-ONCE: um ack perdido faz o broker reentregar
-        // uma mensagem que ja foi processada. Sem defesa, o dinheiro entra duas vezes —
-        // e o cliente nao tem como perceber que recebeu de graca.
         repositorio.inserir(new Conta(1, "Bruno", new BigDecimal("800.00")));
         CreditoRemoto mensagem = new CreditoRemoto(1, new BigDecimal("40.00"), List.of(4, 0, 0), 0);
 
@@ -116,9 +98,6 @@ class ConsumidorDeCreditosTest {
     @Test
     @DisplayName("mensagens diferentes da mesma origem continuam passando as duas")
     void mensagensDistintasNaoSaoConfundidas() {
-        // A defesa nao pode ser "so aceito uma mensagem por agencia". O que identifica a
-        // mensagem e o par (origem, vetorEnvio), e o vetor da origem nunca repete porque
-        // cada envio incrementa a posicao dela.
         repositorio.inserir(new Conta(1, "Bruno", new BigDecimal("800.00")));
 
         consumidor.aoReceberCredito(new CreditoRemoto(1, new BigDecimal("40.00"), List.of(4, 0, 0), 0));
@@ -135,11 +114,8 @@ class ConsumidorDeCreditosTest {
         consumidor.aoReceberCredito(new CreditoRemoto(7, new BigDecimal("25.00"), List.of(6, 0, 0), 0));
 
         assertThat(relogio.valorAtual()).isNotEqualTo(antes);
-        // aprendeu que a agencia 0 chegou em 6, mesmo sem conseguir aplicar o valor
         assertThat(relogio.valorAtual().valorDe(0)).isEqualTo(6);
     }
-
-    // ------------------------------------------------------------------ fakes
 
     private static class PublicadorMudo extends Publicador {
         PublicadorMudo() {

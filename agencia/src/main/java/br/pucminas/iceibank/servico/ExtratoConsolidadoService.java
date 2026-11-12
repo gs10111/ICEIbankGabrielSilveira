@@ -12,22 +12,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * FUNCIONALIDADE ADICIONAL 3 — extrato consolidado.
- *
- * Soma os saldos de varias contas do mesmo aluno, mesmo espalhadas por agencias
- * diferentes. Para cada conta pedida decide, pela regra de particao, se a busca
- * e local ou remota.
- *
- * Este e o primeiro ponto do sistema que faz uma LEITURA distribuida, e ele
- * expoe um limite real: o total NAO e um snapshot atomico. As agencias sao
- * consultadas uma a uma, e uma transferencia pode acontecer entre duas leituras.
- * O resultado carrega `consistente` dizendo se alguma agencia falhou — melhor
- * devolver um numero rotulado como parcial do que um numero errado calado.
- */
 @Service
 public class ExtratoConsolidadoService {
-
     public record ItemDoExtrato(int id, String nomeAluno, BigDecimal saldo, int agencia, boolean disponivel) { }
 
     public record Extrato(BigDecimal total, List<ItemDoExtrato> contas, boolean consistente) { }
@@ -76,11 +62,10 @@ public class ExtratoConsolidadoService {
             return consultaRemota.consultar(dona, id)
                     .map(remota -> new ItemDoExtrato(remota.id(), remota.nomeAluno(), remota.saldo(), dona, true));
         } catch (AgenciaRemotaIndisponivelException e) {
-            return Optional.empty();     // agencia fora do ar: item marcado indisponivel
+            return Optional.empty();
         }
     }
 
-    /** Sobrecarga por titular: procura, entre as contas DESTA agencia, as do mesmo nome. */
     public List<Integer> idsDoTitularLocal(String nomeAluno) {
         return repositorio.todas().stream()
                 .filter(conta -> conta.nome().equalsIgnoreCase(nomeAluno))

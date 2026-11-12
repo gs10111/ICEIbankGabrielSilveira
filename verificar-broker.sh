@@ -1,10 +1,4 @@
 #!/bin/bash
-# Pre-voo: o broker esta acessivel DESTE computador?
-#
-# Rode isto no PC do laboratorio ANTES de apresentar. Sem Docker, o broker e
-# remoto (CloudAMQP), e laboratorios costumam bloquear portas de saida que nao
-# sejam 80/443. Se este teste falhar, a transferencia entre agencias nao vai
-# funcionar na hora H -- e melhor descobrir agora, nao na frente da banca.
 set -e
 RAIZ="$(cd "$(dirname "$0")" && pwd)"
 

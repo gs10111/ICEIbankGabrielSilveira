@@ -1,9 +1,3 @@
-# Defaults de DESENVOLVIMENTO. Toda chave aceita override por variavel de ambiente
-# (Spring Boot relaxed binding: AGENCIA_ID -> agencia.id, SERVER_PORT -> server.port).
-#
-#   AGENCIA_ID=1 SERVER_PORT=4017 mvn spring-boot:run
-#
-# OFFSET pessoal = 16 (dois ultimos digitos do RA 1466316) -> portas 4016/4017/4018.
 agencia:
   id: ${AGENCIA_ID:0}
   total: ${AGENCIA_TOTAL:3}
@@ -13,23 +7,14 @@ agencia:
 server:
   port: ${SERVER_PORT:4016}
 
-# SPRINT 3 — eleicao de lider (algoritmo de Bully).
-# timeout: quanto esperar outra agencia antes de considera-la fora do ar.
-# intervalo: de quanto em quanto tempo o heartbeat confere se a lider continua viva.
 bully:
   timeout-ms: ${BULLY_TIMEOUT_MS:1000}
   intervalo-ms: ${BULLY_INTERVALO_MS:3000}
   ativo: ${BULLY_ATIVO:true}
 
-# PARTE A — mensageria (RabbitMQ / CloudAMQP).
-# A URL e SEGREDO: vem sempre do ambiente, nunca tem default commitado.
-#   export RABBITMQ_URL="amqps://usuario:senha@host.cloudamqp.com/vhost"
-# Uma exchange topic compartilhada; cada agencia tem a propria fila, vinculada
-# pela routing key agencia.<id>.creditar.
 mensageria:
   url: ${RABBITMQ_URL:}
   exchange: ${RABBITMQ_EXCHANGE:iceibank.eventos}
-
 
 spring:
   application:
@@ -37,19 +22,12 @@ spring:
   rabbitmq:
     listener:
       simple:
-        # Mensagem que falhou NAO volta para a fila: a conta que nao existe agora nao
-        # vai passar a existir na proxima tentativa, e reentregar em loop travaria o
-        # consumidor. O consumidor trata o caso e registra CREDITO_REMOTO_FALHOU.
         default-requeue-rejected: false
 
 logging:
   level:
     br.pucminas.iceibank: INFO
 
-# PARTE F — autenticacao.
-# O segredo tem default so para desenvolvimento; em producao vem de JWT_SEGREDO.
-# As 3 agencias compartilham o mesmo segredo, entao um token emitido por qualquer
-# uma vale nas outras (stateless de verdade).
 seguranca:
   segredo-jwt: ${JWT_SEGREDO:iceibank-sprint1-segredo-de-desenvolvimento-trocar-em-producao}
   validade-em-segundos: ${JWT_VALIDADE:900}

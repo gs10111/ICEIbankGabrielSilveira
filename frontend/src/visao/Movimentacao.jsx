@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { hora, vetor } from '../modelo/formato.js'
 import { Alerta, Blueprint, Campo, Tag } from './componentes/Base.jsx'
 
-/** VIEW — deposito e saque, parametrizados pelo tipo. */
 export default function Movimentacao({ tipo, contaPadrao, eventosDaAgencia, alerta, aoConfirmar }) {
   const eSaque = tipo === 'saque'
   const [idConta, setIdConta] = useState(String(contaPadrao))

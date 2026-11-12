@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ParticionadorTest {
-
     @Test
     @DisplayName("com 3 agencias, a conta pertence a agencia id % 3")
     void distribuiContasPeloRestoDaDivisao() {
@@ -27,8 +26,8 @@ class ParticionadorTest {
     void verificaSeAContaPertenceAAgencia() {
         Particionador particionador = new Particionador(3);
 
-        assertTrue(particionador.pertenceA(1, 1)); // conta 1 E da agencia 1
-        assertFalse(particionador.pertenceA(1, 0)); // conta 1 NAO e da agencia 0
+        assertTrue(particionador.pertenceA(1, 1));
+        assertFalse(particionador.pertenceA(1, 0));
     }
 
     @Test

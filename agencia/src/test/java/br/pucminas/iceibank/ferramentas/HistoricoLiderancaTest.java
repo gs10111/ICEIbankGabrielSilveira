@@ -12,12 +12,7 @@ import java.nio.file.StandardOpenOption;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * SPRINT 3, Parte C — a linha do tempo de liderancas reconstruida dos 3 logs.
- * Mesmo seam do MesclarLogsTest: entra uma pasta de .jsonl, sai o texto.
- */
 class HistoricoLiderancaTest {
-
     @Test
     @DisplayName("reconstroi lider inicial -> queda -> nova lider, em ordem de hora de parede")
     void reconstroiQuedaENovaLider(@TempDir Path pasta) throws IOException {

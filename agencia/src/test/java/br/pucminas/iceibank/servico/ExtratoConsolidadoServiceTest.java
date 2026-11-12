@@ -17,15 +17,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * FUNCIONALIDADE ADICIONAL 3 — extrato consolidado.
- *
- * O ponto que estes testes travam nao e a soma: e o que acontece quando UMA das
- * agencias nao responde. O total precisa sair rotulado como parcial, nunca como
- * um numero errado apresentado como certo.
- */
 class ExtratoConsolidadoServiceTest {
-
     private static final int ID_AGENCIA = 0;
 
     private static final AgenciaProperties PROPRIEDADES = new AgenciaProperties(
@@ -46,14 +38,14 @@ class ExtratoConsolidadoServiceTest {
         agenciaRemota = new AgenciaRemotaFalsa();
         servico = new ExtratoConsolidadoService(PROPRIEDADES, new Particionador(3), repositorio, agenciaRemota);
 
-        repositorio.inserir(new Conta(0, "Ana Souza", new BigDecimal("1000.00")));  // 0 % 3 == 0, local
-        repositorio.inserir(new Conta(3, "Diego Melo", new BigDecimal("300.00")));  // 3 % 3 == 0, local
+        repositorio.inserir(new Conta(0, "Ana Souza", new BigDecimal("1000.00")));
+        repositorio.inserir(new Conta(3, "Diego Melo", new BigDecimal("300.00")));
     }
 
     @Test
     @DisplayName("soma contas locais e remotas da mesma titular")
     void somaLocalComRemoto() {
-        agenciaRemota.saldos.put(4, new BigDecimal("250.00"));   // 4 % 3 == 1, agencia 1
+        agenciaRemota.saldos.put(4, new BigDecimal("250.00"));
 
         ExtratoConsolidadoService.Extrato extrato = servico.consolidar(List.of(0, 4));
 
@@ -72,7 +64,7 @@ class ExtratoConsolidadoServiceTest {
         ExtratoConsolidadoService.Extrato extrato = servico.consolidar(List.of(0, 4));
 
         assertThat(extrato.consistente()).isFalse();
-        assertThat(extrato.total()).isEqualByComparingTo("1000.00");   // so o que deu para ler
+        assertThat(extrato.total()).isEqualByComparingTo("1000.00");
         assertThat(extrato.contas()).filteredOn(item -> item.id() == 4)
                 .singleElement()
                 .satisfies(item -> {
@@ -99,12 +91,10 @@ class ExtratoConsolidadoServiceTest {
     @Test
     @DisplayName("idsDoTitularLocal acha as contas do mesmo nome nesta agencia")
     void achaContasDoMesmoTitularLocalmente() {
-        repositorio.inserir(new Conta(6, "Ana Souza", new BigDecimal("70.00")));   // 6 % 3 == 0
+        repositorio.inserir(new Conta(6, "Ana Souza", new BigDecimal("70.00")));
 
         assertThat(servico.idsDoTitularLocal("ana souza")).containsExactlyInAnyOrder(0, 6);
     }
-
-    // ------------------------------------------------------------------ fake
 
     private static class AgenciaRemotaFalsa extends AgenciaRemota {
         final java.util.Map<Integer, BigDecimal> saldos = new java.util.HashMap<>();

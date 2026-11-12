@@ -28,9 +28,7 @@ void main() {
 
       malha.fora.add(2);
       malha.lider = 1;
-      await tester.pump(
-        const Duration(seconds: 3),
-      ); // um ciclo do polling, nenhum toque na tela
+      await tester.pump(const Duration(seconds: 3));
       await tester.pump();
 
       expect(find.text('Agência 1'), findsOneWidget);

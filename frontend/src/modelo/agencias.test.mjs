@@ -1,17 +1,9 @@
-/**
- * Teste da descoberta de topologia. Roda com `npm test` — usa o runner embutido
- * do Node (node:test), sem dependencia nova.
- *
- * O que ele trava: o frontend NAO pode voltar a repetir o numero de agencias.
- * Se alguem reintroduzir um 3 literal aqui, o caso "backend informa 5" quebra.
- */
 import { test, describe, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 
 const MODULO = new URL('./agencias.js', import.meta.url).href
 let contador = 0
 
-/** Importa o modulo do zero, com o fetch trocado por este aqui. */
 async function comBackendRespondendo(resposta) {
   globalThis.fetch = resposta
   return import(`${MODULO}?caso=${contador++}`)

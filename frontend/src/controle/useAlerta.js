@@ -1,11 +1,6 @@
 import { useCallback, useState } from 'react'
 import { ErroDaApi } from '../modelo/api.js'
 
-/**
- * CONTROLLER — traduz erro HTTP em mensagem de TELA.
- *
- * Requisito 5 da Parte G: o erro tem que aparecer para quem usa, nao so no console.
- */
 export function useAlerta() {
   const [alerta, setAlerta] = useState(null)
 

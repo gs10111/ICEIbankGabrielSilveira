@@ -1,6 +1,3 @@
-/** VIEW — componentes de apresentacao do design system Industry. */
-
-/** Toda moldura tecnica leva as quatro marcas de registro. Nunca omitir. */
 export function Blueprint({ className = '', style, children }) {
   return (
     <div className={`blueprint ${className}`} style={style}>
@@ -58,7 +55,6 @@ export function Tag({ tipo = 'neutral', children }) {
   return <span className={`tag tag-${tipo}`}>{children}</span>
 }
 
-/* Icones Lucide inline, stroke-width 1.5, em accent. */
 const svg = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none',
   stroke: 'var(--color-accent)', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round' }
 

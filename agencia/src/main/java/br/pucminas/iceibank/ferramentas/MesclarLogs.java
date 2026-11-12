@@ -18,21 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-/**
- * Linha do tempo unificada das 3 agencias.
- *
- * Sprint 1 (Parte E): ordenava por um inteiro de Lamport e marcava EMPATES.
- * Sprint 2 (Parte B): o carimbo virou VETOR, entao nao existe mais "ordenar por
- * carimbo" — vetores dao ordem PARCIAL, e uma lista impressa e necessariamente
- * uma ordem total. A listagem passa a ser por hora de parede (so para ficar
- * legivel) com o vetor visivel em cada linha; quem responde "quem veio antes" e
- * a comparacao de vetores, que entra na Parte D.
- *
- * Rodar:
- *   java -jar target/iceibank-agencia-1.0.0.jar --mesclar-logs [pasta]
- */
 public final class MesclarLogs {
-
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private MesclarLogs() {
@@ -54,8 +40,6 @@ public final class MesclarLogs {
             return saida.toString();
         }
 
-        // Ordenada por hora de parede APENAS para exibicao. A hora fisica nao carrega
-        // causalidade e nao decide nada no sistema — quem responde isso e o vetor.
         eventos.sort(Comparator.comparing(e -> String.valueOf(e.get("horaParede"))));
 
         saida.append('\n');
@@ -71,8 +55,6 @@ public final class MesclarLogs {
         List<String> concorrentes = paresConcorrentes(eventos);
         saida.append("\n=== Pares de eventos CONCORRENTES (agencias diferentes) ===\n");
         if (concorrentes.isEmpty()) {
-            // Lista vazia nao e defeito: e o resultado de todo evento estar numa cadeia
-            // causal. Dizer isso em voz alta evita ler o silencio como bug.
             saida.append("(nenhum par concorrente nesta execucao - gere operacoes independentes"
                     + " em agencias diferentes e rode de novo)\n");
         }
@@ -88,16 +70,6 @@ public final class MesclarLogs {
         return saida.toString();
     }
 
-    /**
-     * PARTE D — os pares comprovadamente concorrentes, entre agencias DIFERENTES.
-     *
-     * Pares da MESMA agencia sao pulados de proposito: dentro de uma agencia o
-     * relogio e um so e sempre incrementa, entao dois eventos dela nunca podem ser
-     * concorrentes. Listar isso seria ruido garantido.
-     *
-     * O laco e O(n^2) — compara todos os pares. E o que o roteiro pede e o que a
-     * pergunta 8.3.3 problematiza: com milhoes de eventos isso nao se sustenta.
-     */
     static List<String> paresConcorrentes(List<Map<String, Object>> eventos) {
         List<String> pares = new ArrayList<>();
         for (int i = 0; i < eventos.size(); i++) {
@@ -117,11 +89,6 @@ public final class MesclarLogs {
         return String.valueOf(primeiro.get("agencia")).equals(String.valueOf(segundo.get("agencia")));
     }
 
-    /**
-     * Linha sem vetor (log truncado no meio de uma escrita) ou de malha com outro
-     * numero de agencias nao da para comparar. Nao afirmamos concorrencia sem vetor:
-     * "nao sei" e diferente de "sao independentes".
-     */
     private static boolean saoConcorrentes(Map<String, Object> primeiro, Map<String, Object> segundo) {
         List<Integer> umVetor = vetorDe(primeiro);
         List<Integer> outroVetor = vetorDe(segundo);
@@ -136,7 +103,6 @@ public final class MesclarLogs {
         return "[" + evento.get("agencia") + "] " + evento.get("tipo") + " " + vetorDe(evento);
     }
 
-    /** O vetor da linha, no formato [a, b, c]. Linha sem o campo aparece como [?]. */
     @SuppressWarnings("unchecked")
     static List<Integer> vetorDe(Map<String, Object> evento) {
         Object bruto = evento.get("timestampVetorial");

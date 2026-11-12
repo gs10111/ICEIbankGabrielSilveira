@@ -17,15 +17,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * As rotas do Bully e QUEM pode chama-las. A regra do algoritmo esta no ServicoBullyTest.
- *
- * Nao ha teste de POST /bully/eleicao aceito de proposito: aceitar dispara uma eleicao
- * de verdade em segundo plano, que mudaria a lider no meio dos outros testes.
- */
 @SpringBootTest
 class BullyControllerTest {
-
     private static final String TOKEN_DE_TESTE = "token-de-teste-entre-agencias";
 
     @Autowired

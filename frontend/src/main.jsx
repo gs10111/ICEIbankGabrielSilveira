@@ -4,9 +4,6 @@ import App from './App.jsx'
 import { descobrirMalha } from './modelo/agencias.js'
 import './design-system.css'
 
-// A topologia e perguntada ao backend ANTES do primeiro render. Assim nenhuma
-// tela precisa lidar com "ainda nao sei quantas agencias existem", e AGENCIAS
-// continua sendo leitura sincrona nos componentes.
 descobrirMalha().then((malha) => {
   if (!malha.descoberta) {
     console.warn(

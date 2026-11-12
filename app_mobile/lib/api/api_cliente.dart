@@ -7,7 +7,6 @@ import '../modelo/conta.dart';
 import '../modelo/dinheiro.dart';
 import '../modelo/malha.dart';
 
-/// A agencia respondeu com erro (4xx/5xx). A mensagem e a do backend, campo `erro`.
 class ErroApi implements Exception {
   final int status;
   final String mensagem;
@@ -20,8 +19,6 @@ class ErroApi implements Exception {
   String toString() => mensagem;
 }
 
-/// A agencia NAO respondeu: sem rede, modo aviao, agencia derrubada ou timeout.
-/// E diferente de ErroApi — aqui a operacao nem chegou a ser julgada.
 class SemConexao implements Exception {
   final int agencia;
 
@@ -32,8 +29,6 @@ class SemConexao implements Exception {
       'Agência $agencia não respondeu (sem conexão ou fora do ar).';
 }
 
-/// HTTP 409 de POST /contas/{id}/sincronizar: a operacao offline NAO foi aplicada
-/// porque a agencia mudou desde a leitura do app. Traz o estado real da conta.
 class ConflitoDeSincronizacao implements Exception {
   final String mensagem;
   final ContaLida contaAtual;
@@ -44,8 +39,6 @@ class ConflitoDeSincronizacao implements Exception {
   String toString() => mensagem;
 }
 
-/// Unico ponto do app que fala HTTP e que sabe do JWT — o mesmo papel do
-/// modelo/api.js do frontend web (resposta da pergunta 12.3.1 do Sprint 1).
 class ApiCliente {
   Malha malha;
   final http.Client _http;
@@ -95,8 +88,6 @@ class ApiCliente {
     ),
   );
 
-  /// A chave de idempotencia e gerada AQUI, no cliente: se o servidor gerasse, cada
-  /// reenvio teria chave nova e a deduplicacao do Sprint 1 nao serviria para nada.
   Future<Recibo> transferir(
     int idOrigem,
     int idDestino,
@@ -120,7 +111,6 @@ class ApiCliente {
     );
   }
 
-  /// SPRINT 3, Parte F — entrega uma operacao feita offline. 409 vira ConflitoDeSincronizacao.
   Future<ContaLida> sincronizar(
     int idConta,
     String tipo,
@@ -139,8 +129,6 @@ class ApiCliente {
     ),
   );
 
-  /// GET /bully/lider numa agencia especifica. Publico: nao precisa de login.
-  /// null = aquela agencia ainda nao sabe quem e a lider (eleicao em curso).
   Future<int?> liderSegundo(int agencia) async =>
       (await _requisitar(agencia, 'GET', '/bully/lider'))['liderAtual'] as int?;
 

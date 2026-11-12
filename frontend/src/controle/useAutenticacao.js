@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, guardarSessao, lerSessao, limparSessao } from '../modelo/api.js'
 
-/**
- * CONTROLLER — sessao, token e contagem regressiva.
- *
- * Pergunta 12.3.2 do roteiro: quando o token expira no meio do uso, a interface
- * AVISA. Aqui isso acontece de duas formas — o contador zera e dispara `aoExpirar`,
- * e qualquer 401 vindo da API derruba a sessao com mensagem visivel.
- */
 export function useAutenticacao() {
   const [sessao, setSessao] = useState(() => lerSessao())
   const [segundosRestantes, setSegundosRestantes] = useState(0)
@@ -40,7 +33,6 @@ export function useAutenticacao() {
     setSessao(null)
   }, [])
 
-  /** Invalida o token na hora — usado para o print auth-token-expirado.png. */
   const expirarAgora = useCallback(() => {
     const invalida = { ...sessao, token: `${sessao.token}-invalidado`, expiraEm: Date.now() }
     guardarSessao(invalida)

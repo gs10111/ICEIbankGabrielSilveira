@@ -5,12 +5,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
-/**
- * Corpos das duas mensagens do Bully. Mesmos nomes de campo do roteiro (origemId,
- * liderId, vetorEnvio), para a conversa ser a mesma em qualquer linguagem.
- */
 public final class MensagemBully {
-
     private MensagemBully() {
     }
 
@@ -18,6 +13,5 @@ public final class MensagemBully {
 
     public record Coordenador(@NotNull Integer liderId, @NotEmpty List<Integer> vetorEnvio) { }
 
-    /** liderAtual null = esta agencia ainda nao sabe quem e a lider (eleicao em curso). */
     public record Lider(int idAgencia, Integer liderAtual) { }
 }

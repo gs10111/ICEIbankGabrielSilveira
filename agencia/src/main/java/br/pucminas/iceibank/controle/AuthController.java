@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
-
     private final ContaService contaService;
     private final RepositorioDeCredenciais credenciais;
     private final JwtService jwtService;
@@ -43,12 +42,8 @@ public class AuthController {
         try {
             conta = contaService.consultar(pedido.idConta());
         } catch (ContaNaoPertenceAgenciaException e) {
-            // 400 e nao 401: o problema nao e credencial, e porta de entrada errada.
-            // A mensagem diz qual agencia procurar.
             return ResponseEntity.badRequest().body(new ErroResposta(e.getMessage()));
         } catch (ContaNaoEncontradaException e) {
-            // 401 generico de proposito: dizer "conta nao existe" permitiria a um
-            // atacante enumerar contas validas antes de tentar senhas.
             return naoAutorizado();
         }
 

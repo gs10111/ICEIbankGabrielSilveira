@@ -3,12 +3,7 @@ package br.pucminas.iceibank.servico;
 import br.pucminas.iceibank.modelo.conta.Conta;
 import br.pucminas.iceibank.modelo.relogio.CarimboVetorial;
 
-/**
- * A agencia mudou desde a ultima leitura do app: a operacao feita offline NAO foi
- * aplicada. Carrega o estado atual para o app decidir o que fazer (vira HTTP 409).
- */
 public class ConflitoDeSincronizacaoException extends RuntimeException {
-
     private final transient CarimboVetorial vetorConhecido;
     private final transient CarimboVetorial vetorAtual;
     private final transient Conta contaAtual;

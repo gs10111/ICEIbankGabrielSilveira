@@ -10,24 +10,16 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * O algoritmo de assinatura precisa ser uma DECISAO nossa, nao uma consequencia
- * do tamanho do segredo. Sem informar o algoritmo, a jjwt escolhe sozinha pelo
- * tamanho da chave — trocar JWT_SEGREDO por um mais longo mudaria a criptografia
- * do sistema sem ninguem perceber, e a documentacao passaria a mentir.
- */
 class JwtServiceTest {
-
     private static final String SEGREDO_CURTO =
-            "segredo-de-teste-com-exatamente-32-b";                    // 36 bytes
+            "segredo-de-teste-com-exatamente-32-b";
     private static final String SEGREDO_LONGO =
-            "iceibank-sprint1-segredo-de-desenvolvimento-trocar-em-producao"; // 62 bytes
+            "iceibank-sprint1-segredo-de-desenvolvimento-trocar-em-producao";
 
     private static JwtService servico(String segredo) {
         return new JwtService(new SegurancaProperties(segredo, 900, "token-de-servico"));
     }
 
-    /** Le o header do JWT: primeira das tres partes, base64url, JSON puro. */
     private static String cabecalho(String token) {
         String parte = token.split("\\.")[0];
         return new String(Base64.getUrlDecoder().decode(parte), StandardCharsets.UTF_8);

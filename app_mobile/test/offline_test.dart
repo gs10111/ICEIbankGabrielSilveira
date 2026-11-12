@@ -26,7 +26,7 @@ void main() {
     );
     agencia = AgenciaFalsa();
     banco = novoBanco();
-    await banco.entrar(0, 'ana123'); // online: le saldo 100 e vetor [1,0,0]
+    await banco.entrar(0, 'ana123');
   });
 
   tearDown(() => Hive.deleteFromDisk());
@@ -181,7 +181,7 @@ void main() {
     test('conta mudou enquanto offline: operacao NAO aplicada, marcada como conflito, saldo real na tela', () async {
       agencia.online = false;
       await banco.depositar(5000);
-      agencia.mudarPorOutroCaminho(30); // alguem depositou 30 pelo frontend web
+      agencia.mudarPorOutroCaminho(30);
       agencia.online = true;
 
       await banco.sincronizarPendentes();

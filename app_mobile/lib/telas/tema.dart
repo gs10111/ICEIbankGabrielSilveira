@@ -8,8 +8,6 @@ ThemeData temaIceiBank() => ThemeData(
   ),
 );
 
-/// Mensagem de erro/sucesso no rodape. Erro fica vermelho e mais tempo na tela:
-/// o roteiro pede tratamento VISIVEL de erro, nao um print no console.
 void avisar(BuildContext context, String mensagem, {bool erro = false}) {
   final cores = Theme.of(context).colorScheme;
   ScaffoldMessenger.of(context)

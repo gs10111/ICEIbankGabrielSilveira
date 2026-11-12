@@ -7,7 +7,6 @@ import 'package:iceibank_mobile/api/api_cliente.dart';
 import 'package:iceibank_mobile/estado/monitor_lideranca.dart';
 import 'package:iceibank_mobile/modelo/malha.dart';
 
-/// As 3 agencias com porta 4016-4018; `fora` lista as derrubadas e `lider` o que respondem.
 class Malha3 {
   final Set<int> fora = {};
   int? lider = 2;
@@ -66,7 +65,7 @@ void main() {
     expect(monitor.lider, 2);
 
     malha.fora.add(2);
-    malha.lider = 1; // as que sobraram reelegeram
+    malha.lider = 1;
     await monitor.consultar();
 
     expect(monitor.lider, 1);
@@ -106,7 +105,7 @@ void main() {
         final malha = Malha3()
           ..fora.add(2)
           ..lider = 1
-          ..liderPorAgencia[0] = 2; // a 0 ainda acha que a lider e a 2
+          ..liderPorAgencia[0] = 2;
         final monitor = MonitorLideranca(
           ApiCliente(const Malha(host: 'h'), cliente: malha.cliente),
         );

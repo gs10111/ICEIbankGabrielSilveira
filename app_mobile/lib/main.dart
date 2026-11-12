@@ -14,8 +14,6 @@ import 'telas/login_tela.dart';
 import 'telas/painel_lideranca.dart';
 import 'telas/tema.dart';
 
-/// No emulador Android o PC e 10.0.2.2; na web, o mesmo host de onde a pagina veio.
-/// `flutter run --dart-define=ICEIBANK_HOST=192.168.0.10` para um celular de verdade.
 String hostPadrao() => kIsWeb
     ? Uri.base.host
     : const String.fromEnvironment('ICEIBANK_HOST', defaultValue: '10.0.2.2');
@@ -26,7 +24,6 @@ Future<void> main() async {
   final armazenamento = await Armazenamento.abrir();
 
   final api = ApiCliente(Malha(host: armazenamento.host ?? hostPadrao()));
-  // Reabre logado com o ultimo saldo guardado, mesmo em modo aviao (Parte F).
   final banco = Banco(api, armazenamento)..restaurar();
   GatilhoDeSincronizacao(
     banco,
@@ -50,8 +47,6 @@ class IceiBankApp extends StatelessWidget {
       theme: temaIceiBank(),
       home: ListenableBuilder(
         listenable: banco,
-        // O painel aparece nas duas telas: GET /bully/lider e publico, entao da para
-        // acompanhar o consenso antes mesmo do login.
         builder: (context, _) => banco.logado
             ? ContaTela(
                 banco: banco,

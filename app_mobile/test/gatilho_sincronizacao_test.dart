@@ -62,7 +62,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 60));
       expect(banco.pendentes, hasLength(1));
 
-      agencia.online = true; // nenhum evento de conectividade
+      agencia.online = true;
       await Future<void>.delayed(const Duration(milliseconds: 80));
 
       expect(banco.pendentes, isEmpty);

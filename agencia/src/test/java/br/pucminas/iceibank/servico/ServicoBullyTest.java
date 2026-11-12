@@ -21,13 +21,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * O algoritmo de Bully sem rede: as 3 agencias conversam por uma {@link RedeEmMemoria}
- * e a eleicao assincrona roda na propria thread do teste. Assim a "tempestade" de
- * eleicoes da subida vira uma sequencia deterministica que da para conferir.
- */
 class ServicoBullyTest {
-
     private static final int TOTAL = 3;
 
     private static AgenciaProperties propriedades(int id) {
@@ -36,16 +30,13 @@ class ServicoBullyTest {
                 "target/dados-de-teste");
     }
 
-    // ---------------------------------------------------------------- Parte A
-
     @Nested
     class Eleicao {
-
         @Test
         @DisplayName("sem ninguem de ID maior respondendo, a agencia se torna lider e anuncia as outras")
         void ninguemMaiorRespondeVira() {
             RedeEmMemoria rede = new RedeEmMemoria();
-            ServicoBully zero = rede.agencia(0);              // 1 e 2 fora do ar
+            ServicoBully zero = rede.agencia(0);
 
             zero.iniciarEleicao();
 
@@ -59,7 +50,7 @@ class ServicoBullyTest {
         void alguemMaiorRespondeEspera() {
             RedeEmMemoria rede = new RedeEmMemoria();
             ServicoBully zero = rede.agencia(0);
-            rede.agenciaQueSoResponde(2);                     // viva, mas nao conduz eleicao
+            rede.agenciaQueSoResponde(2);
 
             zero.iniciarEleicao();
 
@@ -85,7 +76,7 @@ class ServicoBullyTest {
         @DisplayName("receber eleicao de ID menor registra o evento e dispara a propria eleicao")
         void receberEleicaoDisparaAPropria() {
             RedeEmMemoria rede = new RedeEmMemoria();
-            ServicoBully um = rede.agencia(1);                // 2 fora do ar
+            ServicoBully um = rede.agencia(1);
 
             um.receberEleicao(0, new CarimboVetorial(List.of(3, 0, 0)));
 
@@ -116,13 +107,6 @@ class ServicoBullyTest {
             assertThat(rede.registro(0).tipos()).containsExactly("LIDER_ANUNCIADO");
         }
 
-        /**
-         * Nao esta no exemplo do roteiro, e e o que impede a divergencia: se a agencia 1
-         * anunciou antes de enxergar a 2, e o anuncio chega na 2 DEPOIS de ela ja ter
-         * vencido, aceitar faria a 2 achar que a lider e a 1 enquanto 0 e 1 acham que e
-         * a 2 — e o heartbeat da 2 nunca corrigiria, porque a 1 esta viva. No algoritmo
-         * original, quem tem ID maior "intimida" (bully) e convoca nova eleicao.
-         */
         @Test
         @DisplayName("anuncio de coordenador de ID MENOR e recusado e convoca nova eleicao")
         void recusaCoordenadorMenor() {
@@ -142,7 +126,6 @@ class ServicoBullyTest {
 
     @Nested
     class MensagemInvalida {
-
         @Test
         @DisplayName("coordenador com id fora da malha e recusado: nao vira lider uma agencia que nao existe")
         void coordenadorForaDaMalha() {
@@ -176,14 +159,13 @@ class ServicoBullyTest {
 
     @Nested
     class Convergencia {
-
         @Test
         @DisplayName("as 3 subindo juntas, cada uma disparando sua eleicao, convergem para a 2")
         void tresSobemEConvergemParaADois() {
             RedeEmMemoria rede = new RedeEmMemoria();
             List<ServicoBully> todas = List.of(rede.agencia(0), rede.agencia(1), rede.agencia(2));
 
-            todas.forEach(ServicoBully::iniciarEleicao);      // a "tempestade" da subida
+            todas.forEach(ServicoBully::iniciarEleicao);
 
             assertThat(todas).allSatisfy(a -> assertThat(a.liderAtual()).contains(2));
         }
@@ -211,18 +193,15 @@ class ServicoBullyTest {
             zero.iniciarEleicao();
             assertThat(zero.liderAtual()).contains(1);
 
-            ServicoBully dois = rede.agencia(2);               // sobe depois
+            ServicoBully dois = rede.agencia(2);
             dois.iniciarEleicao();
 
             assertThat(List.of(zero, um, dois)).allSatisfy(a -> assertThat(a.liderAtual()).contains(2));
         }
     }
 
-    // ---------------------------------------------------------------- Parte B
-
     @Nested
     class Heartbeat {
-
         @Test
         @DisplayName("sem lider conhecida, o heartbeat inicia uma eleicao")
         void semLiderElege() {
@@ -281,12 +260,6 @@ class ServicoBullyTest {
         }
     }
 
-    // ------------------------------------------------------------ rede falsa
-
-    /**
-     * As 3 agencias ligadas em memoria. Uma agencia que nao foi criada esta "fora do ar":
-     * a mensagem para ela volta como nao respondida, exatamente como um timeout.
-     */
     static class RedeEmMemoria {
         final ServicoBully[] nos = new ServicoBully[TOTAL];
         final RegistroEmLista[] registros = new RegistroEmLista[TOTAL];

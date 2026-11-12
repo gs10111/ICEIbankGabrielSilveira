@@ -11,7 +11,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ContaRepositorioTest {
-
     private ContaRepositorio repositorio;
 
     @BeforeEach
@@ -57,10 +56,6 @@ class ContaRepositorioTest {
     @Test
     @DisplayName("alterar a conta buscada ja altera a que esta no repositorio")
     void mutacaoEhVisivelSemNenhumaChamadaAMais() {
-        // E por isto que "salvar depois de alterar" nao existe: o mapa guarda a
-        // REFERENCIA. Os seis repositorio.salvar(...) que havia nos servicos eram
-        // put() do objeto por ele mesmo. Este teste trava esse contrato — se um dia
-        // o repositorio passar a guardar copia, ele quebra e avisa.
         repositorio.inserir(new Conta(3, "Ana", new BigDecimal("100.00")));
 
         repositorio.buscar(3).orElseThrow().depositar(new BigDecimal("50.00"));

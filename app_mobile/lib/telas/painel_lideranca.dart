@@ -2,8 +2,6 @@ import 'package:material_ui/material_ui.dart';
 
 import '../estado/monitor_lideranca.dart';
 
-/// O consenso na tela: qual agencia e a lider agora. Atualiza sozinho a cada
-/// consulta do MonitorLideranca — ninguem precisa puxar para atualizar.
 class PainelLideranca extends StatelessWidget {
   final MonitorLideranca monitor;
 
@@ -94,7 +92,6 @@ class PainelLideranca extends StatelessWidget {
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}';
 }
 
-/// FUNCIONALIDADE ADICIONAL: quais das 3 agencias estao respondendo agora.
 class _AgenciasAtivas extends StatelessWidget {
   final MonitorLideranca monitor;
 

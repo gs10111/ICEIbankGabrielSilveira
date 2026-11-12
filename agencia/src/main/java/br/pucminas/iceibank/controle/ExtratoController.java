@@ -7,15 +7,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * FUNCIONALIDADE ADICIONAL 3.
- *
- *   GET /extrato-consolidado?contas=0,1,3
- *   GET /extrato-consolidado?titular=Ana        (usa as contas do titular NESTA agencia)
- */
 @RestController
 public class ExtratoController {
-
     private final ExtratoConsolidadoService servico;
 
     public ExtratoController(ExtratoConsolidadoService servico) {
@@ -26,7 +19,6 @@ public class ExtratoController {
     public ExtratoConsolidadoService.Extrato consolidar(
             @RequestParam(required = false) List<Integer> contas,
             @RequestParam(required = false) String titular) {
-
         List<Integer> ids = (contas != null && !contas.isEmpty())
                 ? contas
                 : servico.idsDoTitularLocal(titular == null ? "" : titular);

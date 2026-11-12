@@ -24,10 +24,7 @@ void main() {
   tearDown(Hive.close);
 
   Future<void> abrir(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(
-      1080,
-      3200,
-    ); // tela alta: a lista de pendentes cabe sem rolar
+    tester.view.physicalSize = const Size(1080, 3200);
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(

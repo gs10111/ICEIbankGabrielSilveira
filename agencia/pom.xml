@@ -23,7 +23,6 @@
     </properties>
 
     <dependencies>
-        <!-- JWT: api publica + implementacao (runtime) + suporte a JSON via Jackson -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
@@ -41,8 +40,6 @@
             <version>0.12.6</version>
             <scope>runtime</scope>
         </dependency>
-        <!-- So o BCrypt do Spring Security, sem a cadeia de filtros do framework:
-             o filtro JWT e escrito a mao de proposito (ver RESPOSTAS.md). -->
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
@@ -51,9 +48,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-        <!-- PARTE A/C — mensageria. Cliente RabbitMQ integrado ao Spring: traz o
-             ConnectionFactory, o RabbitTemplate (publicacao) e o @RabbitListener
-             (consumo), que roda em thread propria, fora do pool do Tomcat. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
@@ -73,7 +67,6 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
 
     <build>
         <plugins>

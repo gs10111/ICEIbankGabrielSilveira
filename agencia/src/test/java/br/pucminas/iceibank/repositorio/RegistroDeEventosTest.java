@@ -18,7 +18,6 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RegistroDeEventosTest {
-
     @TempDir
     Path pastaTemporaria;
 
@@ -63,7 +62,6 @@ class RegistroDeEventosTest {
         assertThat(registro.caminhoArquivo().getFileName().toString()).isEqualTo("eventos-agencia-2.jsonl");
     }
 
-    /** A configuracao de uma agencia apontando para a pasta temporaria do teste. */
     private static AgenciaProperties configuracao(int id, Path pasta) {
         return new AgenciaProperties(id, 3,
                 List.of("http://localhost:4016", "http://localhost:4017", "http://localhost:4018"),
@@ -79,7 +77,6 @@ class RegistroDeEventosTest {
         registro.registrar("DEPOSITO", vetor(5, 2, 0), Map.of("id", 0));
         registro.registrar("SAQUE", vetor(3, 7, 1), Map.of("id", 0));
 
-        // o ULTIMO e [3,7,1], mas o maximo posicao a posicao e [5,7,1]
         assertThat(registro.vetorRestaurado(3)).isEqualTo(vetor(5, 7, 1));
     }
 
@@ -91,8 +88,6 @@ class RegistroDeEventosTest {
         assertThat(registro.vetorRestaurado(3)).isEqualTo(vetor(0, 0, 0));
     }
 
-
-    /** Atalho: vetor(1, 0, 0) em vez de new CarimboVetorial(List.of(1, 0, 0)). */
     private static CarimboVetorial vetor(int... valores) {
         return new CarimboVetorial(java.util.Arrays.stream(valores).boxed().toList());
     }

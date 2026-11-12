@@ -1,12 +1,5 @@
 import { urlDaAgencia } from './agencias.js'
 
-/**
- * MODEL — acesso a API das agencias.
- *
- * O token fica em localStorage e e reenviado por ESTE modulo em toda requisicao:
- * nenhuma tela monta header de autenticacao. E o equivalente a um interceptor —
- * um unico ponto sabe da existencia do JWT (resposta da pergunta 12.3.1).
- */
 const CHAVE_TOKEN = 'iceibank.token'
 const CHAVE_SESSAO = 'iceibank.sessao'
 
@@ -33,7 +26,6 @@ export function tokenAtual() {
   return localStorage.getItem(CHAVE_TOKEN)
 }
 
-/** Erro de API com o status HTTP preservado — a View precisa dele para a faixa de alerta. */
 export class ErroDaApi extends Error {
   constructor(http, mensagem) {
     super(mensagem)
@@ -50,7 +42,6 @@ async function requisitar(idAgencia, caminho, opcoes = {}) {
   try {
     resposta = await fetch(`${urlDaAgencia(idAgencia)}${caminho}`, { ...opcoes, headers: cabecalhos })
   } catch {
-    // fetch so rejeita por rede: agencia derrubada, DNS, CORS.
     throw new ErroDaApi(503, `Agência ${idAgencia} não respondeu (fora do ar?)`)
   }
 

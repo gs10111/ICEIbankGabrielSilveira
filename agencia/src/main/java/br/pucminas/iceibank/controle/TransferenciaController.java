@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class TransferenciaController {
-
     private final TransferenciaService transferir;
     private final TransferenciaService servico;
     private final int idAgencia;
@@ -23,16 +22,11 @@ public class TransferenciaController {
     public TransferenciaController(TransferenciaService transferir,
                                    TransferenciaService servico,
                                    AgenciaProperties propriedades) {
-        this.transferir = transferir;       // ja vem DECORADO com idempotencia
-        this.servico = servico;             // usado so no credito remoto
+        this.transferir = transferir;
+        this.servico = servico;
         this.idAgencia = propriedades.id();
     }
 
-    /**
-     * A chave de idempotencia vem no header `Idempotency-Key` (convencao de mercado)
-     * ou no corpo. Quem gera e o CLIENTE — se o servidor gerasse, cada reenvio teria
-     * chave nova e a deduplicacao nao serviria para nada.
-     */
     @PostMapping("/transferencias")
     public Recibo transferir(@RequestHeader(value = "Idempotency-Key", required = false) String chaveDoHeader,
                              @Valid @RequestBody TransferenciaRequest pedido) {

@@ -3,23 +3,11 @@ import { paresConcorrentes } from '../modelo/causalidade.js'
 import { hora, vetor } from '../modelo/formato.js'
 import { Alerta, Blueprint, Tag } from './componentes/Base.jsx'
 
-/**
- * VIEW — a linha do tempo das 3 agencias, agora com carimbo VETORIAL.
- *
- * No Sprint 1 esta tabela era ordenada pelo inteiro de Lamport e destacava os
- * EMPATES. Com vetor isso deixou de fazer sentido: vetores dao ordem PARCIAL, e
- * uma tabela impressa e necessariamente uma ordem total — nao existe "ordenar
- * pelo carimbo". A listagem passa a ser por hora de parede, que serve so para a
- * leitura, com o vetor visivel em cada linha. Quem responde "quem veio antes" e a
- * comparacao de vetores, que entra na Parte D.
- */
 export default function LinhaDoTempo({ eventos, alerta, aoGerarConcorrentes }) {
   const ordenados = useMemo(
     () => [...eventos].sort((a, b) => a.horaParede.localeCompare(b.horaParede)),
     [eventos])
 
-  // PARTE D. A analise nao vive aqui dentro: mora em modelo/causalidade.js, que e
-  // funcao pura e tem teste. A tela so exibe o que ela devolve.
   const concorrentes = useMemo(() => paresConcorrentes(ordenados), [ordenados])
 
   return (

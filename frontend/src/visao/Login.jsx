@@ -5,7 +5,6 @@ import { api, ErroDaApi } from '../modelo/api.js'
 import { Alerta, Blueprint, Campo, Segmentado } from './componentes/Base.jsx'
 import { useAlerta } from '../controle/useAlerta.js'
 
-/** VIEW — tela de login e escolha da agencia de entrada. */
 export default function Login({ aoEntrar }) {
   const [agencia, setAgencia] = useState(0)
   const [idConta, setIdConta] = useState('0')
@@ -26,7 +25,6 @@ export default function Login({ aoEntrar }) {
     limpar()
     const conta = Number(idConta)
 
-    // Checagem no CLIENTE so para dar mensagem melhor: o backend repete a validacao.
     if (!Number.isInteger(conta) || conta < 0) {
       doErro(new ErroDaApi(400, 'Número de conta inválido: informe um inteiro não negativo.'))
       return

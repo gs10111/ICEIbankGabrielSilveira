@@ -1,25 +1,11 @@
 import 'dinheiro.dart';
 
-enum EstadoPendente {
-  /// Na fila, esperando conexao. Entra no saldo provisorio.
-  pendente,
+enum EstadoPendente { pendente, conflito, recusada }
 
-  /// A agencia recusou com 409: a conta mudou enquanto o app estava offline.
-  /// NAO entra no saldo provisorio; espera a pessoa decidir (reenviar ou descartar).
-  conflito,
-
-  /// A agencia recusou por regra de negocio (saldo insuficiente, por exemplo).
-  recusada,
-}
-
-/// Uma operacao feita sem conexao, guardada no aparelho ate a agencia aceitar.
-///
-/// `vetorConhecido` e o vetor que a agencia tinha na ultima leitura do app. E ele que
-/// a agencia compara em POST /contas/{id}/sincronizar para saber se ainda e seguro.
 class OperacaoPendente {
   final int chave;
   final int idConta;
-  final String tipo; // DEPOSITO | SAQUE — os que o backend sincroniza
+  final String tipo;
   final int centavos;
   final List<int> vetorConhecido;
   final DateTime criadaEm;
@@ -41,7 +27,6 @@ class OperacaoPendente {
 
   bool get ehDeposito => tipo == 'DEPOSITO';
 
-  /// Efeito no saldo provisorio: + deposito, - saque.
   int get efeitoCentavos => ehDeposito ? centavos : -centavos;
 
   String get descricao =>

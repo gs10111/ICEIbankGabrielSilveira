@@ -11,7 +11,6 @@ import java.util.List;
 
 @Configuration
 public class ConfiguracaoDeSeguranca {
-
     @Bean
     public FilterRegistrationBean<FiltroJwt> filtroJwt(JwtService jwtService, SegurancaProperties propriedades) {
         FilterRegistrationBean<FiltroJwt> registro =
@@ -21,7 +20,6 @@ public class ConfiguracaoDeSeguranca {
         return registro;
     }
 
-    /** CORS liberado para o frontend Vite (dev). Em producao, restringir a origem. */
     @Bean
     public FilterRegistrationBean<CorsFilter> filtroCors() {
         CorsConfiguration configuracao = new CorsConfiguration();
@@ -33,7 +31,7 @@ public class ConfiguracaoDeSeguranca {
         fonte.registerCorsConfiguration("/**", configuracao);
 
         FilterRegistrationBean<CorsFilter> registro = new FilterRegistrationBean<>(new CorsFilter(fonte));
-        registro.setOrder(1);        // antes do filtro JWT: o preflight OPTIONS nao leva token
+        registro.setOrder(1);
         return registro;
     }
 }

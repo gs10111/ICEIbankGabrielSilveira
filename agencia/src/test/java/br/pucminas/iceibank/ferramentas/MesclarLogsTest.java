@@ -12,25 +12,10 @@ import java.nio.file.StandardOpenOption;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * PARTE D — a linha do tempo causal.
- *
- * O roteiro (8.2) pede os DOIS lados provados: um par de eventos concorrentes, que
- * precisa aparecer, e um par causal, que precisa NAO aparecer. Um relatorio que
- * listasse tudo como concorrente passaria no primeiro teste e falharia no segundo —
- * e e exatamente por isso que os dois existem.
- *
- * O seam e `montarRelatorio(Path)`: entra uma pasta de `.jsonl`, sai o texto. Nada
- * aqui conhece o laco por dentro, entao a implementacao pode mudar de O(n^2) para
- * qualquer outra coisa sem reescrever teste nenhum.
- */
 class MesclarLogsTest {
-
     @Test
     @DisplayName("aponta como concorrente o par de agencias diferentes em que nenhum vetor domina o outro")
     void apontaParConcorrenteEntreAgenciasDiferentes(@TempDir Path pasta) throws IOException {
-        // Duas aberturas de conta simultaneas, uma em cada agencia, sem nenhuma
-        // mensagem entre elas: a agencia 0 nao sabe da 1 e a 1 nao sabe da 0.
         gravar(pasta, "agencia-0", "ABERTURA_DE_CONTA", "[1,0,0]", "2026-09-28T12:00:00Z");
         gravar(pasta, "agencia-1", "ABERTURA_DE_CONTA", "[0,1,0]", "2026-09-28T12:00:01Z");
 
@@ -44,9 +29,6 @@ class MesclarLogsTest {
     @Test
     @DisplayName("transferencia entre agencias NAO aparece como concorrente: ha cadeia causal")
     void parCausalNaoApareceComoConcorrente(@TempDir Path pasta) throws IOException {
-        // O debito na agencia 0 publicou a mensagem que virou o credito na agencia 1.
-        // Pela regra 3 o destino absorveu o vetor da origem: [1,0,0] esta contido em
-        // [1,1,0] posicao a posicao, entao a relacao e ANTES, nunca CONCORRENTES.
         gravar(pasta, "agencia-0", "TRANSFERENCIA_DEBITO", "[1,0,0]", "2026-09-28T12:00:00Z");
         gravar(pasta, "agencia-1", "TRANSFERENCIA_CREDITO_REMOTO", "[1,1,0]", "2026-09-28T12:00:02Z");
 
@@ -61,8 +43,6 @@ class MesclarLogsTest {
     @Test
     @DisplayName("o resumo conta os pares concorrentes: o numero cabe no print, a lista nao")
     void resumoTrazAContagemDeParesConcorrentes(@TempDir Path pasta) throws IOException {
-        // 22 eventos reais de uma execucao produziram 123 pares. A lista completa e o
-        // que o roteiro pede, mas nao e o que se le num print — o numero e.
         gravar(pasta, "agencia-0", "CRIAR_CONTA", "[1,0,0]", "2026-09-28T12:00:00Z");
         gravar(pasta, "agencia-1", "CRIAR_CONTA", "[0,1,0]", "2026-09-28T12:00:01Z");
         gravar(pasta, "agencia-2", "CRIAR_CONTA", "[0,0,1]", "2026-09-28T12:00:02Z");
@@ -71,8 +51,6 @@ class MesclarLogsTest {
 
         assertThat(relatorio).contains("pares concorrentes: 3");
     }
-
-    // ------------------------------------------------------------------ apoio
 
     private static void gravar(Path pasta, String agencia, String tipo, String vetor, String hora)
             throws IOException {

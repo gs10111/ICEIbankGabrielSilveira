@@ -15,16 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * Relogio vetorial — Sprint 2, Parte B.
- *
- * As tres regras (roteiro, secao 6):
- *   1. evento local  -> incrementa a PROPRIA posicao
- *   2. ao enviar     -> incrementa a propria posicao e anexa o vetor inteiro
- *   3. ao receber V  -> vetor[i] = max(vetor[i], V[i]) em cada posicao, DEPOIS incrementa a propria
- */
 class RelogioVetorialTest {
-
     private static CarimboVetorial vetor(int... valores) {
         return new CarimboVetorial(java.util.Arrays.stream(valores).boxed().toList());
     }
@@ -32,7 +23,6 @@ class RelogioVetorialTest {
     @Nested
     @DisplayName("regra 1 — evento local")
     class EventoLocal {
-
         @Test
         @DisplayName("relogio novo de 3 agencias comeca zerado")
         void comecaZerado() {
@@ -63,7 +53,6 @@ class RelogioVetorialTest {
     @Nested
     @DisplayName("regra 2 — ao enviar")
     class AoEnviar {
-
         @Test
         @DisplayName("tambem incrementa a propria posicao, no MESMO vetor")
         void compartilhaOVetorComOEventoLocal() {
@@ -78,12 +67,9 @@ class RelogioVetorialTest {
     @Nested
     @DisplayName("regra 3 — ao receber")
     class AoReceber {
-
         @Test
         @DisplayName("max posicao a posicao e depois incrementa a propria")
         void maxPosicaoAPosicaoEDepoisIncrementa() {
-            // A agencia 1 tem [0,1,0] e recebe [2,0,0] da agencia 0.
-            // max -> [2,1,0]; incrementa a posicao 1 -> [2,2,0]
             RelogioVetorial daAgencia1 = new RelogioVetorial(1, 3);
             daAgencia1.eventoLocal();
 
@@ -96,7 +82,7 @@ class RelogioVetorialTest {
             RelogioVetorial daAgencia0 = new RelogioVetorial(0, 3);
             daAgencia0.eventoLocal();
             daAgencia0.eventoLocal();
-            daAgencia0.eventoLocal();                       // [3,0,0]
+            daAgencia0.eventoLocal();
 
             assertEquals(vetor(4, 0, 0), daAgencia0.aoReceber(vetor(1, 0, 0)));
         }
@@ -106,7 +92,6 @@ class RelogioVetorialTest {
         void aprendeAsPosicoesDasOutras() {
             RelogioVetorial daAgencia2 = new RelogioVetorial(2, 3);
 
-            // recebe um vetor que ja viu a agencia 0 e a 1
             assertEquals(vetor(5, 7, 1), daAgencia2.aoReceber(vetor(5, 7, 0)));
         }
 
@@ -122,7 +107,6 @@ class RelogioVetorialTest {
     @Nested
     @DisplayName("construcao")
     class Construcao {
-
         @Test
         @DisplayName("id fora da malha e recusado")
         void idForaDaMalha() {
@@ -139,7 +123,6 @@ class RelogioVetorialTest {
         @Test
         @DisplayName("restaurado de um vetor conhecido, continua de la")
         void restauradoContinuaDeOndeParou() {
-            // mesmo motivo do Sprint 1: o .jsonl sobrevive ao restart, o vetor em memoria nao
             RelogioVetorial restaurado = new RelogioVetorial(0, vetor(11, 4, 2));
 
             assertEquals(vetor(12, 4, 2), restaurado.eventoLocal());
@@ -149,7 +132,6 @@ class RelogioVetorialTest {
     @Nested
     @DisplayName("concorrencia")
     class Concorrencia {
-
         @Test
         @DisplayName("cem eventos locais simultaneos geram cem vetores distintos")
         void eventoLocalEhSeguroSobConcorrencia() throws InterruptedException {
@@ -184,7 +166,6 @@ class RelogioVetorialTest {
     @Nested
     @DisplayName("comparacao de vetores — o que Lamport nao conseguia responder")
     class Comparacao {
-
         @Test
         @DisplayName("[3,1,0] vs [3,2,0] -> ANTES (questao 6.4.2 do roteiro)")
         void v1AntesDeV2() {
@@ -218,7 +199,6 @@ class RelogioVetorialTest {
         @Test
         @DisplayName("uma transferencia entre agencias NAO produz par concorrente")
         void transferenciaEntreAgenciasEhCausal() {
-            // agencia 0 debita e envia; agencia 1 recebe. O credito tem de ser DEPOIS do debito.
             RelogioVetorial origem = new RelogioVetorial(0, 3);
             RelogioVetorial destino = new RelogioVetorial(1, 3);
 
@@ -251,7 +231,6 @@ class RelogioVetorialTest {
     @Nested
     @DisplayName("CarimboVetorial")
     class Carimbos {
-
         @Test
         @DisplayName("e imutavel: a lista de origem nao pode alterar o carimbo depois")
         void ehImutavel() {

@@ -8,8 +8,6 @@ import '../modelo/conta.dart';
 import '../modelo/dinheiro.dart';
 import '../modelo/operacao_pendente.dart';
 
-/// O app recusou a operacao antes de mandar para a agencia (ex.: saque offline maior
-/// que o saldo provisorio, transferencia sem conexao).
 class OperacaoRecusadaNoApp implements Exception {
   final String mensagem;
 
@@ -19,20 +17,6 @@ class OperacaoRecusadaNoApp implements Exception {
   String toString() => mensagem;
 }
 
-/// Estado do fluxo bancario: sessao, ultima leitura da conta, fila offline.
-///
-/// ChangeNotifier puro, sem pacote de gerencia de estado: sao duas telas e um
-/// punhado de campos. As telas escutam com ListenableBuilder.
-///
-/// As operacoes LANCAM a excecao (ErroApi / OperacaoRecusadaNoApp) para a tela
-/// mostrar a mensagem; o estado so guarda o que precisa sobreviver entre telas.
-///
-/// SPRINT 3, Parte F — offline-first:
-///  - toda leitura bem-sucedida vai para o aparelho (Armazenamento); sem conexao a
-///    tela mostra a ultima;
-///  - deposito/saque sem conexao NAO falha: entra na fila com o vetor que o app tinha;
-///  - o saldo mostrado e o PROVISORIO (confirmado + pendentes), com aviso visual;
-///  - sincronizarPendentes() e chamado pelo GatilhoDeSincronizacao ao reconectar.
 class Banco extends ChangeNotifier {
   final ApiCliente api;
   final Armazenamento armazenamento;
@@ -40,10 +24,8 @@ class Banco extends ChangeNotifier {
   Sessao? sessao;
   ContaLida? conta;
 
-  /// A ultima tentativa de falar com a agencia da conta falhou por rede.
   bool offline = false;
 
-  /// Motivo de a sessao ter acabado sozinha (401), para a tela de login explicar.
   String? avisoDeSessao;
 
   bool _sincronizando = false;
@@ -58,8 +40,6 @@ class Banco extends ChangeNotifier {
   bool get temPendentes =>
       pendentes.any((p) => p.estado == EstadoPendente.pendente);
 
-  /// Saldo confirmado pela agencia + efeito das operacoes que ainda vao ser sincronizadas.
-  /// Conflitos e recusadas ficam de fora: a agencia ja disse que NAO aplicou.
   int? get saldoProvisorioCentavos {
     if (conta == null) return null;
     return conta!.saldoCentavos +
@@ -68,7 +48,6 @@ class Banco extends ChangeNotifier {
             .fold(0, (soma, p) => soma + p.efeitoCentavos);
   }
 
-  /// Reabre a sessao guardada no aparelho — o app abre logado mesmo em modo aviao.
   void restaurar() {
     final guardada = armazenamento.sessao;
     if (guardada == null) return;
@@ -89,7 +68,6 @@ class Banco extends ChangeNotifier {
     await atualizar();
   }
 
-  /// Sem conexao, NAO lanca: fica com a ultima leitura guardada e marca `offline`.
   Future<void> atualizar() => _protegido(() async {
     try {
       await _guardar(await api.consultar(sessao!.idConta));
@@ -105,8 +83,6 @@ class Banco extends ChangeNotifier {
 
   Future<String> sacar(int centavos) => _escrever('SAQUE', centavos);
 
-  /// Transferencia NAO entra na fila: o endpoint de sincronizacao so cobre deposito e
-  /// saque, e uma transferencia mexe em duas contas, possivelmente em duas agencias.
   Future<String> transferir(int idDestino, int centavos) =>
       _protegido(() async {
         try {
@@ -128,8 +104,6 @@ class Banco extends ChangeNotifier {
       });
 
   Future<String> _escrever(String tipo, int centavos) => _protegido(() async {
-    // Com fila nao vazia, a operacao nova vai para o FIM da fila mesmo online:
-    // aplicar direto avancaria o vetor e faria todas as pendentes darem 409.
     if (!temPendentes) {
       try {
         final lida = tipo == 'DEPOSITO'
@@ -153,7 +127,6 @@ class Banco extends ChangeNotifier {
         'Sem conexão e sem nenhuma leitura da conta guardada no aparelho.',
       );
     }
-    // A UI otimista mostra o saque como feito; nao deixa mostrar saldo negativo.
     if (tipo == 'SAQUE' && saldoProvisorioCentavos! < centavos) {
       throw OperacaoRecusadaNoApp(
         'Saldo provisório insuficiente (${formatarReais(saldoProvisorioCentavos!)}) para sacar offline.',
@@ -165,13 +138,11 @@ class Banco extends ChangeNotifier {
         'pendente de sincronização.';
   }
 
-  /// Entrega a fila, na ordem. Para no primeiro sinal de rede caida.
   Future<void> sincronizarPendentes() async {
     if (_sincronizando || sessao == null) return;
     _sincronizando = true;
     try {
       for (final chave in pendentes.map((p) => p.chave).toList()) {
-        // Rele do disco: o sucesso anterior pode ter trocado o vetor desta.
         final op = armazenamento.pendente(chave);
         if (op == null || op.estado != EstadoPendente.pendente) continue;
         try {
@@ -217,7 +188,6 @@ class Banco extends ChangeNotifier {
     }
   }
 
-  /// A pessoa leu o saldo real e decidiu mandar de novo: vai com o vetor que veio no 409.
   Future<void> reenviar(OperacaoPendente op) async {
     await armazenamento.substituir(
       op.com(estado: EstadoPendente.pendente, vetorConhecido: conta!.vetor),
@@ -246,11 +216,6 @@ class Banco extends ChangeNotifier {
     await armazenamento.guardarConta(lida);
   }
 
-  /// Varias operacoes offline foram feitas sobre a MESMA leitura, entao carregam o
-  /// mesmo vetor. Quando a primeira e aplicada, o vetor da agencia avanca — e a mudanca
-  /// foi a propria operacao do app, que ele sabe exatamente qual foi. As seguintes
-  /// passam a carregar o vetor novo; sem isto, so a primeira passaria e o resto daria
-  /// 409 por causa de si mesmo.
   Future<void> _rebasear({
     required List<int> de,
     required List<int> para,
@@ -263,7 +228,6 @@ class Banco extends ChangeNotifier {
     }
   }
 
-  /// 401 em qualquer operacao derruba a sessao: o token de 15 min expirou.
   Future<T> _protegido<T>(Future<T> Function() operacao) async {
     try {
       return await operacao();
@@ -275,9 +239,6 @@ class Banco extends ChangeNotifier {
 
   static final _aleatorio = Random.secure();
 
-  /// NAO e `1 << 32`: no app web o Dart compila para JavaScript, onde o deslocamento
-  /// e de 32 bits e `1 << 32` vale 0 — nextInt(0) lanca RangeError e TODA
-  /// transferencia falhava antes de sair do aparelho. Na VM (flutter test) funcionava.
   static const _maiorInt32 = 0x7fffffff;
 
   String _novaChave() =>

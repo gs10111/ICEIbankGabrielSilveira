@@ -12,7 +12,6 @@ import 'package:iceibank_mobile/main.dart';
 import 'package:iceibank_mobile/modelo/malha.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Agencia falsa: uma conta, saldo em memoria, as mesmas respostas do backend.
 MockClient agenciaFalsa() {
   var saldo = 100.0;
   http.Response conta() => http.Response(

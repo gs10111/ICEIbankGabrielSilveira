@@ -7,17 +7,6 @@ import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
 
-/**
- * Configuracao da agencia, tipada e validada no boot.
- *
- * Todos os valores tem default de desenvolvimento no application.yml e podem ser
- * sobrescritos por variavel de ambiente (AGENCIA_ID, AGENCIA_TOTAL, AGENCIA_URLS,
- * SERVER_PORT) — 12-Factor III. O mesmo .jar roda como as 3 agencias sem recompilar,
- * e no Sprint 4 o docker-compose so precisa passar `environment:`.
- *
- * Se o YAML estiver errado a aplicacao NAO sobe: melhor falhar no boot do que
- * virar null misterioso na terceira requisicao.
- */
 @Validated
 @ConfigurationProperties(prefix = "agencia")
 public record AgenciaProperties(
@@ -25,7 +14,6 @@ public record AgenciaProperties(
         @Min(1) int total,
         @NotEmpty List<String> urls,
         String pastaDados) {
-
     public AgenciaProperties {
         if (urls != null && id >= urls.size()) {
             throw new IllegalArgumentException(

@@ -20,20 +20,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Regras de aplicacao das contas desta agencia.
- *
- * No MVC, o Controller so traduz HTTP; o Modelo (Conta) guarda a regra de negocio;
- * este Service e a cola: valida a particao, carimba o relogio e registra o evento.
- *
- * Toda operacao que ESCREVE segue a mesma sequencia:
- *   1. a conta e desta agencia?   2. a conta existe?
- *   3. carimba o relogio          4. o MODELO aplica a regra (Conta.depositar/sacar)
- *   5. salva                      6. registra o evento
- */
 @Service
 public class ContaService {
-
     private final int idAgencia;
     private final Particionador particionador;
     private final ContaRepositorio repositorio;
@@ -58,7 +46,6 @@ public class ContaService {
             throw new ContaJaExisteException("conta ja existe nesta agencia: " + id);
         }
 
-        // O carimbo vem DEPOIS das validacoes: so carimbamos o que de fato aconteceu.
         CarimboVetorial carimbo = relogio.eventoLocal();
 
         Conta conta = new Conta(id, nome, saldoInicial);
@@ -68,7 +55,6 @@ public class ContaService {
         return conta;
     }
 
-    /** Leitura NAO carimba: nao altera estado e nao precisa ser ordenada causalmente. */
     public Conta consultar(int id) {
         exigirQueSejaDestaAgencia(id);
         return buscarOuFalhar(id);
@@ -79,7 +65,7 @@ public class ContaService {
         Conta conta = buscarOuFalhar(id);
 
         CarimboVetorial carimbo = relogio.eventoLocal();
-        conta.depositar(valor);                  // a REGRA mora na Conta, nao aqui
+        conta.depositar(valor);
         eventos.registrar("DEPOSITO", carimbo,
                 Map.of("id", id, "valor", valor, "novoSaldo", conta.saldo()));
         return conta;
@@ -96,27 +82,10 @@ public class ContaService {
         return conta;
     }
 
-    /** O vetor da agencia agora, sem avanca-lo. O app guarda junto com o saldo (Sprint 3, Parte E). */
     public CarimboVetorial vetorAtual() {
         return relogio.valorAtual();
     }
 
-    /**
-     * SPRINT 3, Parte E — aplica uma operacao feita OFFLINE pelo app, se ainda for seguro.
-     *
-     * O app manda o vetor que a agencia tinha quando ele leu a conta pela ultima vez.
-     * So IGUAIS e seguro: ANTES significa que a agencia avancou desde entao (algo mudou
-     * enquanto o app estava offline), e CONCORRENTES significa um vetor que esta agencia
-     * nunca teve. Em ambos os casos nada e aplicado e o app recebe o estado real.
-     *
-     * Simplificacao do roteiro, mantida de proposito: o vetor e da AGENCIA, nao da conta.
-     * Uma operacao em OUTRA conta — ou uma mensagem do Bully — tambem conta como mudanca.
-     * Ver a resposta 9.6.2.
-     *
-     * Efeito colateral bom: reenviar a mesma operacao (a resposta se perdeu na rede) da
-     * 409 na segunda vez, porque a primeira ja avancou o vetor. O vetor faz as vezes de
-     * chave de idempotencia.
-     */
     public Conta sincronizar(int id, String tipo, BigDecimal valor, CarimboVetorial vetorConhecido) {
         exigirQueSejaDestaAgencia(id);
         Conta conta = buscarOuFalhar(id);
@@ -129,8 +98,6 @@ public class ContaService {
         if (CarimboVetorial.comparar(vetorConhecido, agora) != Relacao.IGUAIS) {
             throw new ConflitoDeSincronizacaoException(vetorConhecido, agora, conta);
         }
-        // Validado ANTES de carimbar: um saque recusado nao pode avancar o vetor, senao o
-        // app ganharia um conflito falso na proxima tentativa.
         if (valor == null || valor.signum() <= 0) {
             throw new ValorInvalidoException("valor deve ser positivo: " + valor);
         }
@@ -138,7 +105,6 @@ public class ContaService {
             throw new SaldoInsuficienteException("saldo insuficiente: saldo=" + conta.saldo() + " valor=" + valor);
         }
 
-        // Compara e avanca de uma vez: se outra operacao entrou desde a linha de cima, e conflito.
         CarimboVetorial carimbo = relogio.eventoLocalSeAindaFor(vetorConhecido)
                 .orElseThrow(() -> new ConflitoDeSincronizacaoException(vetorConhecido, relogio.valorAtual(), conta));
         if ("DEPOSITO".equals(tipo)) {
@@ -151,13 +117,12 @@ public class ContaService {
         return conta;
     }
 
-    /** FUNCIONALIDADE ADICIONAL 1: historico de eventos de uma conta. */
     public List<Evento> historico(int id, int limite) {
         if (limite <= 0) {
             throw new ValorInvalidoException("limite deve ser positivo: " + limite);
         }
         exigirQueSejaDestaAgencia(id);
-        buscarOuFalhar(id);                      // 404 se a conta nao existe
+        buscarOuFalhar(id);
         return eventos.ultimosDaConta(id, limite);
     }
 

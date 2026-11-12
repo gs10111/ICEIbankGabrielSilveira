@@ -21,17 +21,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Grava cada evento como UMA linha JSON (formato .jsonl) e sabe reler o arquivo
- * para montar o historico de uma conta.
- *
- * synchronized porque o Tomcat atende cada requisicao numa thread do pool: duas
- * escritas simultaneas no mesmo arquivo embaralhariam as linhas.
- */
 @Repository
 public class RegistroDeEventos {
-
-    /** Campos de "detalhes" que referenciam uma conta, usados para filtrar o historico. */
     private static final List<String> CAMPOS_DE_CONTA = List.of("id", "idConta", "idOrigem", "idDestino");
 
     private final String nomeAgencia;
@@ -64,7 +55,7 @@ public class RegistroDeEventos {
                 daConta.add(evento);
             }
         }
-        Collections.reverse(daConta);                       // mais recente primeiro
+        Collections.reverse(daConta);
         return daConta.size() > limite ? List.copyOf(daConta.subList(0, limite)) : List.copyOf(daConta);
     }
 
@@ -81,13 +72,6 @@ public class RegistroDeEventos {
         return lerTodasAsLinhas().size();
     }
 
-    /**
-     * O vetor a partir do qual esta agencia deve retomar o relogio ao subir.
-     *
-     * E o maximo POSICAO A POSICAO de todos os vetores ja gravados — nao o ultimo.
-     * Se a agencia ja reiniciou sem restaurar, o arquivo tem vetores fora de ordem e
-     * o ultimo mentiria. Vetor de zeros quando nao ha arquivo.
-     */
     public synchronized CarimboVetorial vetorRestaurado(int totalDeAgencias) {
         int[] maior = new int[totalDeAgencias];
         for (Map<String, Object> linha : lerTodasAsLinhas()) {
@@ -103,10 +87,8 @@ public class RegistroDeEventos {
         return caminhoArquivo;
     }
 
-    // ------------------------------------------------------------------ escrita
-
     private void escrever(Evento evento) {
-        Map<String, Object> linha = new LinkedHashMap<>();   // LinkedHashMap preserva a ordem dos campos
+        Map<String, Object> linha = new LinkedHashMap<>();
         linha.put("agencia", evento.agencia());
         linha.put("tipo", evento.tipo());
         linha.put("timestampVetorial", evento.carimbo().valores());
@@ -122,8 +104,6 @@ public class RegistroDeEventos {
             throw new UncheckedIOException("falha ao gravar evento em " + caminhoArquivo, e);
         }
     }
-
-    // ------------------------------------------------------------------ leitura
 
     private List<Map<String, Object>> lerTodasAsLinhas() {
         if (!Files.exists(caminhoArquivo)) {
@@ -164,13 +144,6 @@ public class RegistroDeEventos {
         return false;
     }
 
-    /**
-     * Le o vetor de uma linha do .jsonl.
-     *
-     * O Jackson devolve List<Integer> para um array JSON de inteiros. Linha sem o
-     * campo devolve lista vazia — nao existe hoje, mas evita NPE se um log for
-     * truncado no meio de uma escrita.
-     */
     @SuppressWarnings("unchecked")
     private static List<Integer> vetorDe(Map<String, Object> linha) {
         Object bruto = linha.get("timestampVetorial");

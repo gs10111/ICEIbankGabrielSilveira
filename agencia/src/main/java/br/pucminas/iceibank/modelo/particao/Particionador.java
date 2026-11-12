@@ -1,8 +1,7 @@
 package br.pucminas.iceibank.modelo.particao;
 
 public final class Particionador {
-
-    private final int totalAgencias; // final: nunca muda depois de construído
+    private final int totalAgencias;
 
     public Particionador(int totalAgencias) {
         if (totalAgencias <= 0) {

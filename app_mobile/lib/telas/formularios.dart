@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 
 import '../modelo/dinheiro.dart';
 
-/// Resultado de um formulario: valor em centavos e, na transferencia, o destino.
 class Pedido {
   final int centavos;
   final int? destino;

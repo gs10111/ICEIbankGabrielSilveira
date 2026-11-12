@@ -1,10 +1,7 @@
 #!/bin/bash
-# Sobe as 3 agencias em background. Cada uma e o MESMO jar, com AGENCIA_ID diferente.
 set -e
 RAIZ="$(cd "$(dirname "$0")" && pwd)"
 
-# A URL do broker e segredo: mora em .env.local (gitignored), nunca no repositorio.
-# Se voce ja exportou RABBITMQ_URL no terminal, o arquivo nao e necessario.
 if [ -z "${RABBITMQ_URL:-}" ] && [ -f "$RAIZ/.env.local" ]; then
   set -a; . "$RAIZ/.env.local"; set +a
 fi
@@ -28,8 +25,6 @@ for i in 0 1 2; do
 done
 
 echo "aguardando subir..."
-# Confere as TRES portas: antes so a 4018 era testada, entao o script anunciava
-# sucesso mesmo com uma agencia morta — e a demonstracao quebrava so na hora H.
 for _ in $(seq 1 20); do
   sleep 2
   no_ar=0

@@ -14,7 +14,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 class ContaTest {
-
     private Conta conta;
 
     @BeforeEach
@@ -25,7 +24,6 @@ class ContaTest {
     @Test
     @DisplayName("saque diminui o saldo pelo valor sacado")
     void saqueDiminuiSaldo() {
-
         conta.sacar(new BigDecimal("30.00"));
 
         assertThat(conta.saldo()).isEqualByComparingTo("70.00");
@@ -34,7 +32,6 @@ class ContaTest {
     @Test
     @DisplayName("ao tentar sacar um valor maior do que o saldo lancar excessao")
     void lancarSaldoInsuficienteException() {
-
         assertThrows(SaldoInsuficienteException.class, () -> conta.sacar(new BigDecimal("150.00")));
 
     }
@@ -69,13 +66,9 @@ class ContaTest {
         assertThrows(ValorInvalidoException.class, () -> conta.depositar(new BigDecimal("-10.00")));
     }
 
-
     @Test
     @DisplayName("cem depositos simultaneos somam os cem: nenhuma escrita se perde")
     void depositoEhSeguroSobConcorrencia() throws InterruptedException {
-        // Mesma corrida do contador do relogio: saldo = saldo.add(...) le, soma e
-        // escreve. Sem protecao, duas threads leem o mesmo saldo e uma sobrescreve
-        // a outra — lost update.
         int totalThreads = 100;
         ExecutorService pool = Executors.newFixedThreadPool(16);
         CountDownLatch largada = new CountDownLatch(1);
@@ -106,9 +99,6 @@ class ContaTest {
     @Test
     @DisplayName("cem saques simultaneos de conta com cinquenta: cinquenta passam, saldo nunca fica negativo")
     void saqueNaoDeixaSaldoNegativoSobConcorrencia() throws InterruptedException {
-        // O saque e um check-then-act: confere o saldo e so depois subtrai. Sem
-        // protecao, duas threads passam pela mesma checagem e a conta fica negativa
-        // — o invariante que Conta existe para garantir.
         Conta comCinquenta = new Conta(1, "Bruno", new BigDecimal("50.00"));
         int totalThreads = 100;
         AtomicInteger aceitos = new AtomicInteger();
@@ -123,7 +113,6 @@ class ContaTest {
                     comCinquenta.sacar(BigDecimal.ONE);
                     aceitos.incrementAndGet();
                 } catch (SaldoInsuficienteException esperado) {
-                    // metade das threads tem de bater aqui
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } finally {

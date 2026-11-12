@@ -104,6 +104,5 @@ class _LoginTelaState extends State<LoginTela> {
   }
 }
 
-/// Usado pela tela de conta tambem.
 void mostrarErro(BuildContext context, Object erro) =>
     avisar(context, erro.toString(), erro: true);

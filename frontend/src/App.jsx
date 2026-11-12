@@ -12,14 +12,6 @@ import Movimentacao from './visao/Movimentacao.jsx'
 import Painel from './visao/Painel.jsx'
 import Transferencia from './visao/Transferencia.jsx'
 
-/**
- * CONTROLLER principal — orquestra estado, chamadas e navegacao.
- *
- * MVC (pergunta 12.3.3):
- *   Model      -> src/modelo/  (api.js, agencias.js, formato.js)
- *   View       -> src/visao/   (componentes de apresentacao, sem fetch)
- *   Controller -> src/controle/ + este arquivo (estado, chamadas, traducao de erro)
- */
 export default function App() {
   const { sessao, segundosRestantes, entrar, sair, expirarAgora } = useAutenticacao()
   const { alerta, sucesso, doErro, limpar } = useAlerta()
@@ -37,7 +29,6 @@ export default function App() {
     if (sessao) setAgenciaEntrada(sessao.agencia)
   }, [sessao])
 
-  /** 401 em qualquer chamada derruba a sessao COM aviso em tela (pergunta 12.3.2). */
   const tratar = useCallback((erro) => {
     if (erro instanceof ErroDaApi && erro.http === 401) {
       doErro(new ErroDaApi(401, 'Seu token expirou. Faça login novamente para continuar.'))
@@ -65,7 +56,7 @@ export default function App() {
     }
     try {
       setEventosDaAgencia(await api.eventos(agenciaEntrada, 30))
-    } catch { /* agencia de entrada pode estar fora do ar; a malha ja mostra isso */ }
+    } catch {}
   }, [sessao, agenciaEntrada, carregarMalha, tratar])
 
   useEffect(() => { recarregar() }, [recarregar])
@@ -137,8 +128,6 @@ export default function App() {
                   catch (erro) { tratar(erro) }
                 }} />,
     linhaDoTempo: <LinhaDoTempo eventos={eventosGlobais} alerta={alerta} aoGerarConcorrentes={async () => {
-                    // Um evento local em cada agencia, quase ao mesmo tempo: sem troca de
-                    // mensagem entre elas, os contadores avancam de forma independente e colidem.
                     await Promise.all(AGENCIAS.map((a) => {
                       const contaLocal = a.id
                       return api.depositar(a.id, contaLocal, 1).catch(() => null)

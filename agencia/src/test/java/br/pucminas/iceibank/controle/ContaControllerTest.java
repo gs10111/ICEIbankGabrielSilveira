@@ -15,22 +15,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Teste da camada web: valida o que o controller acrescenta ao service —
- * roteamento, codigos HTTP, formato JSON e traducao de excecao em status.
- *
- * A REGRA ja foi testada em ContaServiceTest sem subir Spring; aqui nao repetimos regra.
- */
 @SpringBootTest
 class ContaControllerTest {
-
     @Autowired
     private WebApplicationContext contexto;
 
     @Autowired
     private JwtService jwtService;
 
-    /** addFilters(): sem isso o MockMvc pula o FiltroJwt e o teste nao provaria nada. */
     private MockMvc mvc() {
         return MockMvcBuilders.webAppContextSetup(contexto).addFilters(
                 contexto.getBean(br.pucminas.iceibank.seguranca.ConfiguracaoDeSeguranca.class)
@@ -142,8 +134,6 @@ class ContaControllerTest {
         mvc().perform(get("/contas/-1").header("Authorization", autorizacao()))
                 .andExpect(status().isBadRequest());
     }
-
-    // ---------- Sprint 3, Parte E ----------
 
     @Test
     @DisplayName("GET /contas/{id} devolve o vetorAtual da agencia, para o app guardar")

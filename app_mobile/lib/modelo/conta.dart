@@ -1,9 +1,5 @@
 import 'dinheiro.dart';
 
-/// Uma leitura da conta: o saldo E o vetor da agencia no momento da leitura.
-///
-/// Os dois andam juntos de proposito (Sprint 3, Parte E): o vetor e o que permite
-/// a agencia dizer, mais tarde, se uma operacao feita offline ainda e segura.
 class ContaLida {
   final int id;
   final String nome;

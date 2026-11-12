@@ -31,7 +31,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class TransferenciaServiceTest {
-
     private static final int ID_AGENCIA = 0;
 
     private static final AgenciaProperties PROPRIEDADES = new AgenciaProperties(
@@ -55,8 +54,8 @@ class TransferenciaServiceTest {
         servico = new TransferenciaService(PROPRIEDADES, new Particionador(3), repositorio,
                 new RelogioVetorial(0, 3), registro, publicador, new RegistroDeIdempotencia());
 
-        repositorio.inserir(new Conta(0, "Ana", new BigDecimal("100.00")));   // 0 % 3 == 0
-        repositorio.inserir(new Conta(3, "Caio", new BigDecimal("20.00")));   // 3 % 3 == 0
+        repositorio.inserir(new Conta(0, "Ana", new BigDecimal("100.00")));
+        repositorio.inserir(new Conta(3, "Caio", new BigDecimal("20.00")));
     }
 
     private OrdemDeTransferencia ordem(int origem, int destino, String valor) {
@@ -66,7 +65,6 @@ class TransferenciaServiceTest {
     @Nested
     @DisplayName("mesma agencia")
     class Local {
-
         @Test
         @DisplayName("move o dinheiro entre as duas contas locais")
         void moveODinheiro() {
@@ -102,11 +100,10 @@ class TransferenciaServiceTest {
     @Nested
     @DisplayName("entre agencias")
     class EntreAgencias {
-
         @Test
         @DisplayName("debita local e PUBLICA o credito com o vetor inteiro (regra 2)")
         void debitaLocalEPublicaOCredito() {
-            Recibo recibo = servico.executar(ordem(0, 1, "30.00"));   // conta 1 -> agencia 1
+            Recibo recibo = servico.executar(ordem(0, 1, "30.00"));
 
             assertThat(recibo.local()).isFalse();
             assertThat(repositorio.buscar(0).orElseThrow().saldo()).isEqualByComparingTo("70.00");
@@ -116,19 +113,13 @@ class TransferenciaServiceTest {
             CreditoRemoto publicada = publicador.publicadas.get(0);
             assertThat(publicada.idConta()).isEqualTo(1);
             assertThat(publicada.origemAgencia()).isZero();
-            // debito = [1,0,0] (eventoLocal); envio = [2,0,0] (aoEnviar). O vetor INTEIRO
-            // vai na mensagem, nao so a posicao desta agencia — e isso que permite ao
-            // destino aprender o que a origem ja sabia das demais.
             assertThat(publicada.vetorEnvio()).containsExactly(2, 0, 0);
         }
 
         @Test
         @DisplayName("nao consulta a agencia de destino: publica e segue (o 502 do Sprint 1 morreu)")
         void naoConsultaODestinoAntesDePublicar() {
-            // A conta 99 nao existe em agencia nenhuma, e a agencia 0 nao tem como saber
-            // disso — quem descobre e o consumidor do outro lado. No Sprint 1 isto dava
-            // 404 ou 502; agora da recibo, porque a mensagem foi publicada.
-            Recibo recibo = servico.executar(ordem(0, 100, "30.00"));   // 100 % 3 == 1
+            Recibo recibo = servico.executar(ordem(0, 100, "30.00"));
 
             assertThat(recibo.local()).isFalse();
             assertThat(publicador.publicadas).hasSize(1);
@@ -139,9 +130,6 @@ class TransferenciaServiceTest {
         @Test
         @DisplayName("O QUE SOBROU DA FALHA: broker fora do ar deixa o debito aplicado")
         void brokerForaDoArDeixaODebitoAplicado() {
-            // A inconsistencia do Sprint 1 nao desapareceu — mudou de lugar e encolheu.
-            // Destino fora do ar deixou de ser problema (a fila segura a mensagem); o
-            // BROKER fora do ar ainda e, porque o debito local ja aconteceu.
             publicador.derrubarOBroker();
 
             assertThrows(BrokerIndisponivelException.class, () -> servico.executar(ordem(0, 1, "30.00")));
@@ -155,19 +143,16 @@ class TransferenciaServiceTest {
     @Nested
     @DisplayName("credito remoto (regra 3 de Lamport)")
     class RecebimentoDeCredito {
-
         @Test
         @DisplayName("ajusta o vetor para max posicao a posicao, +1 na propria, e credita")
         void ajustaRelogioECredita() {
-            servico.executar(ordem(0, 3, "10.00"));    // transferencia local: vetor vai a [2,0,0]
+            servico.executar(ordem(0, 3, "10.00"));
 
-            // chega uma mensagem da agencia 2, cujo vetor e [0,0,9]
             Conta conta = servico.creditarRemoto(0, new BigDecimal("5.00"), vetor(0, 0, 9), 2);
 
             assertThat(conta.saldo()).isEqualByComparingTo("95.00");
             Evento credito = registro.eventos.get(registro.eventos.size() - 1);
             assertThat(credito.tipo()).isEqualTo("TRANSFERENCIA_CREDITO_REMOTO");
-            // max posicao a posicao: max([2,0,0], [0,0,9]) = [2,0,9]; depois +1 na propria -> [3,0,9]
             assertThat(credito.carimbo()).isEqualTo(vetor(3, 0, 9));
         }
     }
@@ -175,7 +160,6 @@ class TransferenciaServiceTest {
     @Nested
     @DisplayName("validacoes")
     class Validacoes {
-
         @Test
         @DisplayName("origem que nao e desta agencia e recusada")
         void origemDeOutraAgencia() {
@@ -198,7 +182,6 @@ class TransferenciaServiceTest {
     @Nested
     @DisplayName("idempotencia (funcionalidade adicional 2)")
     class Idempotencia {
-
         @Test
         @DisplayName("reenvio com a mesma chave NAO debita duas vezes")
         void reenvioNaoDebitaDuasVezes() {
@@ -209,7 +192,7 @@ class TransferenciaServiceTest {
 
             assertThat(repositorio.buscar(0).orElseThrow().saldo()).isEqualByComparingTo("70.00");
             assertThat(segunda.reenvio()).isTrue();
-            assertThat(registro.eventos).hasSize(2);   // so a primeira execucao gerou eventos
+            assertThat(registro.eventos).hasSize(2);
         }
 
         @Test
@@ -233,7 +216,7 @@ class TransferenciaServiceTest {
         @Test
         @DisplayName("a chave vale por conta de origem: duas contas podem usar a mesma")
         void chaveDeIdempotenciaEhPorContaDeOrigem() {
-            repositorio.inserir(new Conta(6, "Elis", new BigDecimal("50.00")));   // 6 % 3 == 0
+            repositorio.inserir(new Conta(6, "Elis", new BigDecimal("50.00")));
 
             servico.executar(new OrdemDeTransferencia("op-1", 0, 3, new BigDecimal("10.00")));
             Recibo daOutraConta = servico.executar(new OrdemDeTransferencia("op-1", 6, 3, new BigDecimal("10.00")));
@@ -267,24 +250,14 @@ class TransferenciaServiceTest {
     @Nested
     @DisplayName("destino remoto e particao")
     class DestinoRemoto {
-
         @Test
         @DisplayName("creditar-remoto recusa conta que nao e desta agencia (400, nao 404)")
         void creditarRemotoRecusaContaDeOutraAgencia() {
-            // conta 1 pertence a agencia 1; esta e a agencia 0
             assertThrows(ContaNaoPertenceAgenciaException.class,
                     () -> servico.creditarRemoto(1, new BigDecimal("10.00"), vetor(0, 9, 0), 1));
         }
     }
 
-    // ------------------------------------------------------------------ fakes
-
-    /**
-     * Publicador falso: guarda o que foi publicado em vez de falar com o broker.
-     *
-     * Repare no que ele NAO tem: nenhuma nocao de "agencia de destino no ar". Isso e o
-     * ponto do sprint — quem publica nao sabe nem precisa saber quem vai consumir.
-     */
     private static class PublicadorFalso extends Publicador {
         final List<CreditoRemoto> publicadas = new ArrayList<>();
         private boolean brokerNoAr = true;
@@ -333,7 +306,6 @@ class TransferenciaServiceTest {
         }
     }
 
-    /** Atalho: vetor(1, 0, 0) em vez de new CarimboVetorial(List.of(1, 0, 0)). */
     private static CarimboVetorial vetor(int... valores) {
         return new CarimboVetorial(java.util.Arrays.stream(valores).boxed().toList());
     }

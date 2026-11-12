@@ -2,22 +2,7 @@ package br.pucminas.iceibank.modelo.conta;
 
 import java.math.BigDecimal;
 
-/**
- * Uma conta e o seu saldo.
- *
- * `synchronized` nos tres metodos que tocam o saldo, pelo mesmo motivo do
- * RelogioVetorial: o Tomcat atende cada requisicao numa thread do pool, e
- * `saldo = saldo.add(...)` e um ler-modificar-escrever. Sem isto, dois depositos
- * simultaneos perdem um (lost update) e dois saques passam pela MESMA checagem de
- * saldo e deixam a conta negativa — violando o unico invariante que esta classe
- * existe para garantir.
- *
- * O lock e por instancia, ou seja, por conta: duas contas diferentes nao se
- * esperam. Uma transferencia continua NAO sendo atomica sobre as duas pontas —
- * isso e problema de transacao distribuida, nao de lock local.
- */
 public final class Conta {
-
     private final int id;
     private final String nome;
     private BigDecimal saldo;

@@ -24,15 +24,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * PARTE F — os tres cenarios que o roteiro exige (11.2):
- *   (a) requisicao sem token       -> 401
- *   (b) requisicao com token valido -> funciona
- *   (c) requisicao com token expirado -> 401
- */
 @SpringBootTest
 class AutenticacaoTest {
-
     @Autowired
     private WebApplicationContext contexto;
 
@@ -53,7 +46,6 @@ class AutenticacaoTest {
         return "Bearer " + jwtService.gerar(0, "Ana", 0);
     }
 
-    /** Token com exp no passado, assinado com a MESMA chave: so a expiracao o invalida. */
     private String tokenExpirado() {
         Instant ontem = Instant.now().minusSeconds(86_400);
         String jwt = Jwts.builder()
@@ -68,7 +60,6 @@ class AutenticacaoTest {
     @Nested
     @DisplayName("cenarios do roteiro")
     class Cenarios {
-
         @Test
         @DisplayName("(a) sem token: 401")
         void semTokenDevolve401() throws Exception {
@@ -102,7 +93,6 @@ class AutenticacaoTest {
     @Nested
     @DisplayName("login")
     class Login {
-
         @Test
         @DisplayName("credenciais corretas devolvem token")
         void loginDevolveToken() throws Exception {
@@ -154,7 +144,7 @@ class AutenticacaoTest {
         void loginEhPublico() throws Exception {
             mvc().perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
                             .content("{\"idConta\":99999,\"senha\":\"x\"}"))
-                    .andExpect(status().isUnauthorized())   // 401 de credencial, nao de filtro
+                    .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.erro").value("credenciais invalidas"));
         }
     }
@@ -162,12 +152,6 @@ class AutenticacaoTest {
     @Nested
     @DisplayName("chamada entre agencias")
     class EntreAgencias {
-
-        // SPRINT 2: /creditar-remoto deixou de existir. Creditar virou MENSAGEM, e
-        // mensagem nao passa por rota nem por filtro. A unica rota interna que sobrou e
-        // /interno, a leitura que o extrato consolidado faz nas outras agencias — e o
-        // X-Agencia-Token continua sendo exatamente o que a protege.
-
         @Test
         @DisplayName("rota interna sem o token de servico e recusada")
         void semTokenDeServicoRecusa() throws Exception {
@@ -193,8 +177,6 @@ class AutenticacaoTest {
         @Test
         @DisplayName("o token de servico NAO abre uma rota de usuario")
         void tokenDeServicoNaoAbreRotaDeUsuario() throws Exception {
-            // O segredo de servico tem default no application.yml, entao qualquer um que
-            // leia o repositorio o conhece. Ele so pode valer nas rotas internas.
             mvc().perform(post("/contas")
                             .header("X-Agencia-Token", seguranca.tokenEntreAgencias())
                             .contentType(MediaType.APPLICATION_JSON)

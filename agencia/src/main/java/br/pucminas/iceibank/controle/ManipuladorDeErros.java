@@ -21,17 +21,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.stream.Collectors;
 
-/**
- * UNICO lugar do sistema que sabe traduzir excecao de dominio em codigo HTTP.
- *
- * Por que aqui e nao nas excecoes: se SaldoInsuficienteException carregasse
- * "400", o dominio estaria acoplado ao transporte. No Sprint 2, quando a entrada
- * virar mensagem de fila, "400" nao significa mais nada — mas a excecao continua
- * significando exatamente a mesma coisa.
- */
 @RestControllerAdvice
 public class ManipuladorDeErros {
-
     private final int idAgencia;
 
     public ManipuladorDeErros(AgenciaProperties propriedades) {
@@ -55,10 +46,6 @@ public class ManipuladorDeErros {
         return resposta(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 
-    /**
-     * A LIMITACAO CONHECIDA da Parte D chega aqui: 502, e o debito NAO foi revertido.
-     * A mensagem diz isso explicitamente em vez de esconder a inconsistencia.
-     */
     @ExceptionHandler(AgenciaRemotaIndisponivelException.class)
     public ResponseEntity<ErroResposta> agenciaIndisponivel(AgenciaRemotaIndisponivelException e) {
         return resposta(HttpStatus.BAD_GATEWAY,
@@ -66,14 +53,6 @@ public class ManipuladorDeErros {
                         + " — inconsistencia conhecida, ver Sprint 4 (2PC/Saga). Causa: " + e.getMessage());
     }
 
-    /**
-     * SPRINT 2: o que sobrou da falha da Parte D.
-     *
-     * A agencia de destino fora do ar ja NAO chega aqui — a mensagem espera na fila.
-     * Isto so acontece se o BROKER estiver inalcancavel: ai o debito local ja foi
-     * aplicado e o credito nao chegou nem a ser publicado. 503 e nao 502: o problema
-     * e a nossa propria dependencia de infraestrutura, nao um parceiro remoto.
-     */
     @ExceptionHandler(BrokerIndisponivelException.class)
     public ResponseEntity<ErroResposta> brokerIndisponivel(BrokerIndisponivelException e) {
         return resposta(HttpStatus.SERVICE_UNAVAILABLE,
@@ -82,10 +61,6 @@ public class ManipuladorDeErros {
                         + e.getMessage());
     }
 
-    /**
-     * SPRINT 3, Parte E: a operacao offline NAO foi aplicada. O corpo leva o estado real
-     * da conta para o app mostrar, em vez de so um texto de erro.
-     */
     @ExceptionHandler(ConflitoDeSincronizacaoException.class)
     public ResponseEntity<ConflitoResposta> conflitoDeSincronizacao(ConflitoDeSincronizacaoException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ConflitoResposta(
@@ -98,16 +73,11 @@ public class ManipuladorDeErros {
         return resposta(HttpStatus.CONFLICT, e.getMessage());
     }
 
-    /**
-     * Entrada fora de faixa (id de conta negativo no Particionador, por exemplo).
-     * Sem este handler o Spring devolveria 500 — culpando o servidor por erro do cliente.
-     */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErroResposta> argumentoInvalido(IllegalArgumentException e) {
         return resposta(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 
-    /** Erros das anotacoes de validacao (@NotNull, @Positive) nos DTOs de entrada. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErroResposta> corpoInvalido(MethodArgumentNotValidException e) {
         String detalhes = e.getBindingResult().getFieldErrors().stream()
