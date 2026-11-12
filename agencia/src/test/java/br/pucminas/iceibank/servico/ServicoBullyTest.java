@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * O algoritmo de Bully sem rede: as 3 agencias conversam por uma {@link RedeEmMemoria}
@@ -136,6 +137,40 @@ class ServicoBullyTest {
             assertThat(rede.registro(2).tipos())
                     .containsExactly("COORDENADOR_RECUSADO", "ELEICAO_INICIADA", "TORNOU_LIDER");
             assertThat(rede.agencia(1).liderAtual()).contains(2);
+        }
+    }
+
+    @Nested
+    class MensagemInvalida {
+
+        @Test
+        @DisplayName("coordenador com id fora da malha e recusado: nao vira lider uma agencia que nao existe")
+        void coordenadorForaDaMalha() {
+            ServicoBully zero = new RedeEmMemoria().agencia(0);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> zero.receberCoordenador(7, new CarimboVetorial(List.of(0, 0, 1))));
+            assertThat(zero.liderAtual()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("eleicao com origem fora da malha e recusada")
+        void eleicaoForaDaMalha() {
+            ServicoBully zero = new RedeEmMemoria().agencia(0);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> zero.receberEleicao(-1, new CarimboVetorial(List.of(0, 0, 1))));
+        }
+
+        @Test
+        @DisplayName("vetor com posicao negativa e recusado antes de tocar no relogio")
+        void vetorNegativo() {
+            RedeEmMemoria rede = new RedeEmMemoria();
+            ServicoBully zero = rede.agencia(0);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> zero.receberCoordenador(2, new CarimboVetorial(List.of(0, -5, 1))));
+            assertThat(rede.registro(0).eventos).isEmpty();
         }
     }
 

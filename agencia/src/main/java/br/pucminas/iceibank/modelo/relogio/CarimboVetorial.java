@@ -20,6 +20,11 @@ public record CarimboVetorial(List<Integer> valores) {
             throw new IllegalArgumentException("carimbo vetorial nao pode ser vazio");
         }
         valores = List.copyOf(valores);          // copia defensiva: o record fica imutavel de verdade
+        // Contador negativo nao existe. Desde o Sprint 3 o vetor tambem chega de fora
+        // (/bully/*, /contas/{id}/sincronizar), entao a regra mora aqui e vale para todos.
+        if (valores.stream().anyMatch(v -> v < 0)) {
+            throw new IllegalArgumentException("carimbo vetorial com posicao negativa: " + valores);
+        }
     }
 
     public int tamanho() {

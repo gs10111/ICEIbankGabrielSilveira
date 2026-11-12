@@ -97,12 +97,14 @@ public class ServicoBully {
     }
 
     public void receberEleicao(int origemId, CarimboVetorial vetorRecebido) {
+        exigirAgenciaDaMalha(origemId);
         registro.registrar("ELEICAO_RECEBIDA", relogio.aoReceber(vetorRecebido),
                 Map.of("de", origemId, "minhaId", idAgencia));
         paraEleicoes.execute(this::iniciarEleicao);
     }
 
     public void receberCoordenador(int liderId, CarimboVetorial vetorRecebido) {
+        exigirAgenciaDaMalha(liderId);
         CarimboVetorial carimbo = relogio.aoReceber(vetorRecebido);
         if (liderId < idAgencia) {
             // Eu estou viva e tenho id maior: esse anuncio esta desatualizado.
@@ -187,6 +189,13 @@ public class ServicoBully {
             if (destino != idAgencia) {
                 mensageiro.anunciarCoordenador(destino, idAgencia, relogio.aoEnviar());
             }
+        }
+    }
+
+    /** Sem isto, um anuncio de "lider 7" seria aceito e o heartbeat estouraria ao procurar a URL dela. */
+    private void exigirAgenciaDaMalha(int id) {
+        if (id < 0 || id >= totalDeAgencias) {
+            throw new IllegalArgumentException("agencia " + id + " fora de uma malha de " + totalDeAgencias);
         }
     }
 
