@@ -27,3 +27,6 @@ dist/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# --- Notas locais (nao versionar) ---
+CONTEXTO.md
