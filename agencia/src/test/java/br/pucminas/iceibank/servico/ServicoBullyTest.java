@@ -183,6 +183,69 @@ class ServicoBullyTest {
         }
     }
 
+    // ---------------------------------------------------------------- Parte B
+
+    @Nested
+    class Heartbeat {
+
+        @Test
+        @DisplayName("sem lider conhecida, o heartbeat inicia uma eleicao")
+        void semLiderElege() {
+            RedeEmMemoria rede = new RedeEmMemoria();
+            ServicoBully zero = rede.agencia(0);
+
+            zero.verificarLider();
+
+            assertThat(zero.liderAtual()).contains(0);
+        }
+
+        @Test
+        @DisplayName("a propria lider nao verifica ninguem")
+        void liderNaoSeVerifica() {
+            RedeEmMemoria rede = new RedeEmMemoria();
+            ServicoBully dois = rede.agencia(2);
+            dois.iniciarEleicao();
+            int eventosAntes = rede.registro(2).eventos.size();
+
+            dois.verificarLider();
+
+            assertThat(rede.registro(2).eventos).hasSize(eventosAntes);
+            assertThat(rede.pings).isEmpty();
+        }
+
+        @Test
+        @DisplayName("lider respondendo: nada muda e nada e registrado")
+        void liderVivaNadaMuda() {
+            RedeEmMemoria rede = new RedeEmMemoria();
+            ServicoBully zero = rede.agencia(0);
+            rede.agencia(2).iniciarEleicao();
+            int eventosAntes = rede.registro(0).eventos.size();
+
+            zero.verificarLider();
+
+            assertThat(zero.liderAtual()).contains(2);
+            assertThat(rede.pings).containsExactly("0->2");
+            assertThat(rede.registro(0).eventos).hasSize(eventosAntes);
+        }
+
+        @Test
+        @DisplayName("lider caiu: registra LIDER_NAO_RESPONDEU e as que sobraram elegem a 1")
+        void liderCaiuReelege() {
+            RedeEmMemoria rede = new RedeEmMemoria();
+            ServicoBully zero = rede.agencia(0);
+            ServicoBully um = rede.agencia(1);
+            rede.agencia(2).iniciarEleicao();
+            assertThat(zero.liderAtual()).contains(2);
+
+            rede.derrubar(2);
+            zero.verificarLider();
+
+            assertThat(rede.registro(0).tipos()).contains("LIDER_NAO_RESPONDEU");
+            assertThat(zero.liderAtual()).contains(1);
+            assertThat(um.liderAtual()).contains(1);
+        }
+    }
+
     // ------------------------------------------------------------ rede falsa
 
     /**
@@ -195,6 +258,7 @@ class ServicoBullyTest {
         final Set<Integer> soRespondem = new HashSet<>();
         final List<String> eleicoesEnviadas = new ArrayList<>();
         final List<String> coordenadoresEnviados = new ArrayList<>();
+        final List<String> pings = new ArrayList<>();
 
         ServicoBully agencia(int id) {
             if (nos[id] == null) {
@@ -249,6 +313,7 @@ class ServicoBullyTest {
 
         @Override
         public boolean estaViva(int destino) {
+            rede.pings.add(dono + "->" + destino);
             return rede.viva(destino);
         }
     }

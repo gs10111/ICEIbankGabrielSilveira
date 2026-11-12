@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -113,6 +114,31 @@ public class ServicoBully {
         registro.registrar("LIDER_ANUNCIADO", carimbo, Map.of("liderId", liderId, "agencia", idAgencia));
     }
 
+    /**
+     * SPRINT 3, Parte B — o heartbeat. Roda a cada `bully.intervalo-ms`.
+     *
+     * O compareAndSet ao esquecer a lider e de proposito: entre o ping que falhou e
+     * esta linha pode ter chegado um anuncio de coordenador NOVO, numa thread do
+     * Tomcat. Um `set(null)` cego apagaria essa lider recem-anunciada.
+     */
+    public void verificarLider() {
+        Integer lider = liderAtual.get();
+        if (lider == null) {
+            iniciarEleicao();
+            return;
+        }
+        if (lider == idAgencia) {
+            return;                                   // eu sou a lider, nada a verificar
+        }
+        if (mensageiro.estaViva(lider)) {
+            return;
+        }
+        registro.registrar("LIDER_NAO_RESPONDEU", relogio.eventoLocal(),
+                Map.of("liderAtual", lider, "agencia", idAgencia));
+        liderAtual.compareAndSet(lider, null);
+        iniciarEleicao();
+    }
+
     public Optional<Integer> liderAtual() {
         return Optional.ofNullable(liderAtual.get());
     }
@@ -125,8 +151,25 @@ public class ServicoBully {
     @EventListener(ApplicationReadyEvent.class)
     public void aoSubir(ApplicationReadyEvent evento) {
         BullyProperties bully = evento.getApplicationContext().getBean(BullyProperties.class);
-        if (bully.ativo()) {
-            paraEleicoes.execute(this::iniciarEleicao);
+        if (bully.ativo() && agenda != null) {
+            agenda.execute(this::iniciarEleicao);
+            // fixedDelay e nao fixedRate: se um ping demorar o timeout inteiro, a proxima
+            // verificacao espera o intervalo a partir do FIM desta, sem empilhar.
+            agenda.scheduleWithFixedDelay(this::verificarComSeguranca,
+                    bully.intervaloMs(), bully.intervaloMs(), TimeUnit.MILLISECONDS);
+        }
+    }
+
+    /**
+     * Uma excecao que escape de uma tarefa agendada CANCELA o agendamento em silencio
+     * (contrato do ScheduledExecutorService). O heartbeat morreria na primeira falha
+     * de disco ao registrar evento, e o failover pararia sem nenhum aviso.
+     */
+    private void verificarComSeguranca() {
+        try {
+            verificarLider();
+        } catch (RuntimeException e) {
+            System.err.println("[bully] heartbeat falhou, tenta de novo no proximo ciclo: " + e);
         }
     }
 
