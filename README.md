@@ -1,8 +1,13 @@
-# ICEIBank — Sprints 1 e 2
+# ICEIBank — Sprints 1, 2 e 3
 
 Banco particionado em **três agências independentes**, cada uma responsável por uma
 partição de contas (`agência = id_conta % 3`). Toda operação é carimbada com um
 **relógio vetorial** (no Sprint 1 era um relógio de Lamport).
+
+No **Sprint 3** as agências passam a **eleger uma líder** pelo algoritmo de Bully, com
+heartbeat e failover automático, e nasce o **app Flutter** (`app_mobile/`): fluxo bancário
+completo, painel da líder atualizado sozinho e modo **offline-first** com fila de operações
+pendentes, sincronizada pelo relógio vetorial.
 
 > **Há uma falha intencional nesta entrega.** Uma transferência entre agências que
 > encontra a agência de destino fora do ar **não reverte o débito**. Isso é exigido
@@ -21,6 +26,8 @@ Aluno: **gabriel silveira** · RA 1466316 (OFFSET **16** → portas 4016/4017/40
 |---|---|
 | Backend | Java 21 + Spring Boot 3.5.16 (Maven) |
 | Frontend | React 18 + Vite |
+| App mobile | Flutter 3.50 (Dart 3.14) · `http`, `hive_ce` (armazenamento local), `connectivity_plus` |
+| Consenso | algoritmo de Bully, heartbeat de 3 s, timeout de 1 s (configuráveis) |
 | Autenticação | JWT (jjwt) com filtro escrito à mão + BCrypt |
 | Persistência | em memória (Sprint 1 não exige banco) |
 | Mensageria | RabbitMQ (CloudAMQP) via Spring AMQP — exchange *topic*, uma fila por agência |
@@ -31,7 +38,8 @@ Aluno: **gabriel silveira** · RA 1466316 (OFFSET **16** → portas 4016/4017/40
 ```
 controle/     Controllers e DTOs            ← traduz HTTP, nada mais
 servico/      ContaService, TransferenciaService, ExtratoConsolidadoService,
-              AgenciaRemota (cliente REST das outras agências)
+              AgenciaRemota (cliente REST das outras agências),
+              ServicoBully + MensageiroBully (eleição de líder — Sprint 3)
 modelo/       Conta, Particionador, RelogioLamport, Carimbo, Evento   ← ZERO Spring
 repositorio/  ContaRepositorio, RegistroDeEventos, RegistroDeIdempotencia
 seguranca/    FiltroJwt, JwtService, credenciais
@@ -153,6 +161,37 @@ cd agencia
 java -jar target/iceibank-agencia-1.0.0.jar --mesclar-logs data
 ```
 
+### 4. Eleição de líder (Sprint 3)
+
+Cada agência convoca uma eleição ao subir; as três convergem para a de maior id no ar.
+
+```bash
+curl -s localhost:4016/bully/lider     # {"idAgencia":0,"liderAtual":2}
+fuser -k 4018/tcp                      # derruba a líder; em ~7 s as outras elegem a 1
+java -jar agencia/target/iceibank-agencia-1.0.0.jar --historico-lideranca agencia/data
+```
+
+### 5. App Flutter (Sprint 3)
+
+Precisa do [Flutter SDK](https://docs.flutter.dev/get-started/install) e das agências no ar.
+
+```bash
+cd app_mobile
+flutter pub get
+flutter run                                         # emulador Android: o PC é 10.0.2.2
+flutter run --dart-define=ICEIBANK_HOST=192.168.0.10   # celular na rede do laboratório
+flutter run -d chrome                               # web: usa o host da própria página
+```
+
+O host também é editável na tela de login. Conta **0**, senha `ana123`.
+
+- **Painel da líder**: consulta `GET /bully/lider` nas 3 agências a cada 3 s e mostra quais
+  estão no ar. Atualiza sozinho num failover.
+- **Offline-first**: sem conexão, depósito e saque viram **pendentes** (saldo provisório na
+  tela) e sincronizam sozinhos quando a rede volta. Se a conta mudou enquanto o app estava
+  offline, a agência responde **409** e o app mostra o saldo real e pede uma decisão.
+- Transferência exige conexão: não entra na fila.
+
 ---
 
 ## Endpoints
@@ -170,6 +209,13 @@ java -jar target/iceibank-agencia-1.0.0.jar --mesclar-logs data
 | GET | `/contas/{id}/historico` | JWT | **extra 1** — eventos da conta |
 | GET | `/eventos` | JWT | eventos da agência (alimenta a linha do tempo) |
 | GET | `/extrato-consolidado` | JWT | **extra 3** — soma saldos entre agências |
+| POST | `/contas/{id}/sincronizar` | JWT | **Sprint 3** — aplica operação feita offline se o vetor ainda for o mesmo; senão **409** com o estado atual |
+| POST | `/bully/eleicao` | `X-Agencia-Token` | **Sprint 3** — mensagem de eleição (o 200 é o "estou viva") |
+| POST | `/bully/coordenador` | `X-Agencia-Token` | **Sprint 3** — anúncio da nova líder |
+| GET | `/bully/lider` | pública | **Sprint 3** — quem esta agência acha que é a líder; usada pelo heartbeat e pelo app |
+
+Desde o Sprint 3, toda resposta de conta traz `vetorAtual`: o app guarda junto com o saldo
+e devolve em `/sincronizar`.
 
 Idempotência (**extra 2**): envie `Idempotency-Key: <valor>` em `POST /transferencias`.
 
@@ -190,6 +236,9 @@ Tudo tem default de desenvolvimento no `application.yml` e é sobrescrito por am
 | `AGENCIA_TOKEN` | *(dev)* | segredo da leitura interna entre agências |
 | `RABBITMQ_URL` | *(sem default)* | **obrigatória** — URL AMQP do broker. Sem ela a agência não sobe |
 | `RABBITMQ_EXCHANGE` | `iceibank.eventos` | nome da exchange |
+| `BULLY_INTERVALO_MS` | `3000` | intervalo do heartbeat que confere se a líder está viva |
+| `BULLY_TIMEOUT_MS` | `1000` | quanto esperar outra agência antes de considerá-la fora do ar |
+| `BULLY_ATIVO` | `true` | `false` desliga a eleição automática (usado nos testes) |
 
 O **mesmo jar** roda como as três agências sem recompilar. No Sprint 4, o
 `docker-compose` só precisa passar `environment:`.
@@ -199,8 +248,9 @@ O **mesmo jar** roda como as três agências sem recompilar. No Sprint 4, o
 ## Testes
 
 ```bash
-cd agencia && mvn test        # 110 testes
-cd frontend && npm test       # 5 testes (runner do Node, sem dependencia nova)
+cd agencia && mvn test        # 151 testes
+cd frontend && npm test       # 17 testes (runner do Node, sem dependencia nova)
+cd app_mobile && flutter test # 47 testes (unidade + widget)
 ```
 
 | Suíte | Testes | O que cobre |
@@ -208,19 +258,28 @@ cd frontend && npm test       # 5 testes (runner do Node, sem dependencia nova)
 | `RelogioVetorialTest` | 21 | as 3 regras, comparação de vetores, concorrência (100 threads), restauração |
 | `ParticionadorTest` | 5 | `id % 3`, fronteiras, entradas inválidas |
 | `ContaTest` | 8 | invariantes de saldo, `BigDecimal`, concorrência (100 threads em depósito e saque) |
-| `ContaServiceTest` | 16 | casos de uso + Lamport aplicado + histórico |
+| `ContaServiceTest` | 22 | casos de uso + relógio aplicado + histórico + sincronização offline |
 | `TransferenciaServiceTest` | 17 | local, publicação entre agências, broker fora do ar, idempotência |
-| `ConsumidorDeCreditosTest` | 4 | regra 3 no consumo, conta inexistente, partição errada |
+| `ConsumidorDeCreditosTest` | 6 | regra 3 no consumo, conta inexistente, partição errada |
 | `ExtratoConsolidadoServiceTest` | 5 | soma local + remota, agência fora do ar, `consistente: false` |
 | `ContaRepositorioTest` | 5 | persistência em memória + mutação visível sem `inserir` |
 | `RegistroDeEventosTest` | 5 | formato `.jsonl` + maior carimbo do arquivo |
 | `JwtServiceTest` | 3 | algoritmo HS256 fixo, claims, token de outro emissor |
-| `ContaControllerTest` | 9 | rotas, códigos HTTP, validação |
+| `ContaControllerTest` | 13 | rotas, códigos HTTP, validação, `vetorAtual` e o 409 da sincronização |
+| `ServicoBullyTest` | 17 | eleição, coordenador, convergência das 3, heartbeat, failover, mensagem inválida |
+| `BullyControllerTest` | 5 | rotas do Bully e quem pode chamá-las |
+| `HistoricoLiderancaTest` | 4 | linha do tempo de líderes, troca × reafirmação |
+| `MesclarLogsTest` | 3 | pares concorrentes e causais (Sprint 2) |
 | `AutenticacaoTest` | 12 | os 3 cenários da Parte F + login + rota interna + bypass do token de serviço |
 
-**75 dos 96** rodam **sem subir o Spring** (modelo, serviços e repositórios) e
-terminam em menos de um segundo. Só `ContaControllerTest` e `AutenticacaoTest`
-levantam o contexto.
+A maioria roda **sem subir o Spring** (modelo, serviços, repositórios e ferramentas) e
+termina em menos de um segundo. Só os `*ControllerTest` e `AutenticacaoTest` levantam o
+contexto. O `ServicoBullyTest` liga as 3 agências por uma rede em memória, então a
+"tempestade" de eleições da subida vira uma sequência determinística.
+
+No app, os testes de widget rodam também no navegador
+(`flutter test --platform chrome`) — foi assim que apareceu um defeito que só existia na web
+(ver commit `54fcf7f`).
 
 No frontend, `src/modelo/agencias.test.mjs` cobre a descoberta de topologia: backend
 informando outro número de agências, agência de entrada fora do ar, resposta inválida
@@ -242,4 +301,4 @@ Isso é deliberado: é o problema que o **Sprint 4** resolve com transações di
 ## Documentos
 
 - `RESPOSTAS.md` — todas as questões do roteiro, decisões de design e declaração de uso de IA
-- `evidencias/sprint1/` — prints das execuções
+- `evidencias/sprint1/`, `sprint2/`, `sprint3/` — prints das execuções, indexados no `RESPOSTAS.md`
