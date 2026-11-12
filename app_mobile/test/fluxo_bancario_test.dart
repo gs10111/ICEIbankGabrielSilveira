@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:iceibank_mobile/api/api_cliente.dart';
 import 'package:iceibank_mobile/estado/banco.dart';
+import 'package:iceibank_mobile/estado/monitor_lideranca.dart';
 import 'package:iceibank_mobile/main.dart';
 import 'package:iceibank_mobile/modelo/malha.dart';
 import 'package:material_ui/material_ui.dart';
@@ -49,9 +50,14 @@ Future<void> operar(WidgetTester tester, String botao, String valor) async {
   await tester.pumpAndSettle();
 }
 
+IceiBankApp app() {
+  final api = ApiCliente(const Malha(host: 'h'), cliente: agenciaFalsa());
+  return IceiBankApp(banco: Banco(api), monitor: MonitorLideranca(api));
+}
+
 void main() {
   testWidgets('login, saldo, deposito e saque pela interface', (tester) async {
-    await tester.pumpWidget(IceiBankApp(banco: Banco(ApiCliente(const Malha(host: 'h'), cliente: agenciaFalsa()))));
+    await tester.pumpWidget(app());
 
     await entrar(tester, 'ana123');
     expect(find.text('Olá, Ana'), findsOneWidget);
@@ -65,7 +71,7 @@ void main() {
   });
 
   testWidgets('erro da API aparece na tela: senha errada e saldo insuficiente', (tester) async {
-    await tester.pumpWidget(IceiBankApp(banco: Banco(ApiCliente(const Malha(host: 'h'), cliente: agenciaFalsa()))));
+    await tester.pumpWidget(app());
 
     await entrar(tester, 'errada');
     expect(find.text('credenciais invalidas'), findsOneWidget);

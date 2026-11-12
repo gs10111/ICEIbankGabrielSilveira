@@ -71,6 +71,11 @@ class ApiCliente {
     return Recibo(corpo['mensagem'] as String, centavosDe(corpo['saldoOrigem']));
   }
 
+  /// GET /bully/lider numa agencia especifica. Publico: nao precisa de login.
+  /// null = aquela agencia ainda nao sabe quem e a lider (eleicao em curso).
+  Future<int?> liderSegundo(int agencia) async =>
+      (await _requisitar(agencia, 'GET', '/bully/lider'))['liderAtual'] as int?;
+
   Future<Map<String, dynamic>> _requisitar(int agencia, String metodo, String caminho,
       [Map<String, dynamic>? corpo]) async => _requisitarCom(agencia, metodo, caminho, corpo, const {});
 
