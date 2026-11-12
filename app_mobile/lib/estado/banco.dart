@@ -275,6 +275,11 @@ class Banco extends ChangeNotifier {
 
   static final _aleatorio = Random.secure();
 
+  /// NAO e `1 << 32`: no app web o Dart compila para JavaScript, onde o deslocamento
+  /// e de 32 bits e `1 << 32` vale 0 — nextInt(0) lanca RangeError e TODA
+  /// transferencia falhava antes de sair do aparelho. Na VM (flutter test) funcionava.
+  static const _maiorInt32 = 0x7fffffff;
+
   String _novaChave() =>
-      'app-${DateTime.now().microsecondsSinceEpoch}-${_aleatorio.nextInt(1 << 32).toRadixString(16)}';
+      'app-${DateTime.now().microsecondsSinceEpoch}-${_aleatorio.nextInt(_maiorInt32).toRadixString(16)}';
 }

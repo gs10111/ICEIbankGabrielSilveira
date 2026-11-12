@@ -44,6 +44,31 @@ MockClient agenciaFalsa() {
           }),
           200,
         );
+      case '/transferencias':
+        final valor = corpo['valor'] as num;
+        if (valor > saldo) {
+          return http.Response(
+            jsonEncode({'erro': 'saldo insuficiente: saldo=$saldo'}),
+            400,
+          );
+        }
+        saldo -= valor;
+        final local = corpo['idDestino'] % 3 == 0;
+        return http.Response(
+          jsonEncode({
+            'mensagem': local
+                ? 'Transferencia concluida.'
+                : 'Transferencia publicada para a agencia ${corpo['idDestino'] % 3}.',
+            'local': local,
+            'idOrigem': 0,
+            'idDestino': corpo['idDestino'],
+            'valor': valor,
+            'saldoOrigem': saldo,
+            'reenvio': false,
+            'chave': r.headers['Idempotency-Key'],
+          }),
+          200,
+        );
       case '/contas/0/depositar':
         saldo += corpo['valor'] as num;
         return conta();
@@ -117,4 +142,54 @@ void main() {
       expect(find.textContaining('saldo insuficiente'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'transferencia entre agencias pela interface: recibo na tela e saldo debitado',
+    (tester) async {
+      await tester.pumpWidget(app());
+      await entrar(tester, 'ana123');
+
+      await tester.tap(find.text('Transferir'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Conta de destino'),
+        '1',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, r'Valor (R$)'),
+        '30',
+      );
+      await tester.tap(find.text('Confirmar'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Transferencia publicada para a agencia 1.'),
+        findsOneWidget,
+      );
+      expect(find.text(r'R$ 70,00'), findsOneWidget);
+    },
+  );
+
+  testWidgets('transferencia sem saldo: o erro da agencia aparece na tela', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await entrar(tester, 'ana123');
+
+    await tester.tap(find.text('Transferir'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Conta de destino'),
+      '3',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, r'Valor (R$)'),
+      '500',
+    );
+    await tester.tap(find.text('Confirmar'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('saldo insuficiente'), findsOneWidget);
+    expect(find.text(r'R$ 100,00'), findsOneWidget);
+  });
 }
