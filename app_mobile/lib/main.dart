@@ -1,8 +1,12 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'api/api_cliente.dart';
+import 'dados/armazenamento.dart';
 import 'estado/banco.dart';
+import 'estado/gatilho_sincronizacao.dart';
 import 'estado/monitor_lideranca.dart';
 import 'modelo/malha.dart';
 import 'telas/conta_tela.dart';
@@ -15,9 +19,18 @@ import 'telas/tema.dart';
 String hostPadrao() =>
     kIsWeb ? Uri.base.host : const String.fromEnvironment('ICEIBANK_HOST', defaultValue: '10.0.2.2');
 
-void main() {
-  final api = ApiCliente(Malha(host: hostPadrao()));
-  runApp(IceiBankApp(banco: Banco(api), monitor: MonitorLideranca(api)..iniciar()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  final armazenamento = await Armazenamento.abrir();
+
+  final api = ApiCliente(Malha(host: armazenamento.host ?? hostPadrao()));
+  // Reabre logado com o ultimo saldo guardado, mesmo em modo aviao (Parte F).
+  final banco = Banco(api, armazenamento)..restaurar();
+  GatilhoDeSincronizacao(banco, conectividade: Connectivity().onConnectivityChanged).iniciar();
+  if (banco.logado) banco.atualizar();
+
+  runApp(IceiBankApp(banco: banco, monitor: MonitorLideranca(api)..iniciar()));
 }
 
 class IceiBankApp extends StatelessWidget {
