@@ -1,6 +1,7 @@
 package br.pucminas.iceibank.modelo.relogio;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 /**
  * Relogio vetorial — Sprint 2, Parte B. Substitui o relogio de Lamport do Sprint 1.
@@ -48,6 +49,20 @@ public class RelogioVetorial {
     /** Le o vetor SEM avanca-lo. Uma leitura nao e evento: nenhuma das tres regras se aplica. */
     public synchronized CarimboVetorial valorAtual() {
         return carimbo();
+    }
+
+    /**
+     * Regra 1, mas SO se o relogio ainda estiver exatamente em `esperado` — comparar e
+     * avancar de uma vez, sob o mesmo lock. Sprint 3, Parte E: sem isto, um deposito
+     * que entrasse entre "o vetor do app e igual ao meu" e "aplica a operacao" passaria
+     * despercebido, e a operacao offline seria aplicada sobre um estado que o app nunca viu.
+     */
+    public synchronized Optional<CarimboVetorial> eventoLocalSeAindaFor(CarimboVetorial esperado) {
+        if (!carimbo().equals(esperado)) {
+            return Optional.empty();
+        }
+        vetor[idAgencia] += 1;
+        return Optional.of(carimbo());
     }
 
     /** Regra 1. */

@@ -142,4 +142,60 @@ class ContaControllerTest {
         mvc().perform(get("/contas/-1").header("Authorization", autorizacao()))
                 .andExpect(status().isBadRequest());
     }
+
+    // ---------- Sprint 3, Parte E ----------
+
+    @Test
+    @DisplayName("GET /contas/{id} devolve o vetorAtual da agencia, para o app guardar")
+    void consultaDevolveVetor() throws Exception {
+        mvc().perform(get("/contas/0").header("Authorization", autorizacao()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.vetorAtual").isArray())
+                .andExpect(jsonPath("$.vetorAtual.length()").value(3));
+    }
+
+    @Test
+    @DisplayName("POST /contas/{id}/sincronizar com vetor desatualizado devolve 409 com o estado atual")
+    void sincronizarDesatualizadoDevolve409() throws Exception {
+        String vetorAntigo = vetorDaConta(0);
+        mvc().perform(post("/contas/0/depositar").header("Authorization", autorizacao())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"valor\":1.00}"))
+                .andExpect(status().isOk());
+
+        mvc().perform(post("/contas/0/sincronizar").header("Authorization", autorizacao())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tipo\":\"DEPOSITO\",\"valor\":5.00,\"vetorConhecido\":" + vetorAntigo + "}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.erro").value(org.hamcrest.Matchers.containsString("Conflito")))
+                .andExpect(jsonPath("$.vetorConhecido").isArray())
+                .andExpect(jsonPath("$.vetorAtual").isArray())
+                .andExpect(jsonPath("$.contaAtual.id").value(0));
+    }
+
+    @Test
+    @DisplayName("POST /contas/{id}/sincronizar com o vetor atual aplica e devolve a conta com o vetor novo")
+    void sincronizarAtualAplica() throws Exception {
+        String vetor = vetorDaConta(0);
+
+        mvc().perform(post("/contas/0/sincronizar").header("Authorization", autorizacao())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tipo\":\"DEPOSITO\",\"valor\":5.00,\"vetorConhecido\":" + vetor + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.vetorAtual[0]").value(
+                        Integer.parseInt(vetor.replaceAll("[\\[\\]]", "").split(",")[0].trim()) + 1));
+    }
+
+    @Test
+    @DisplayName("POST /contas/{id}/sincronizar exige JWT como qualquer escrita")
+    void sincronizarSemTokenDevolve401() throws Exception {
+        mvc().perform(post("/contas/0/sincronizar").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tipo\":\"DEPOSITO\",\"valor\":5.00,\"vetorConhecido\":[0,0,0]}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private String vetorDaConta(int id) throws Exception {
+        String corpo = mvc().perform(get("/contas/" + id).header("Authorization", autorizacao()))
+                .andReturn().getResponse().getContentAsString();
+        return new com.fasterxml.jackson.databind.ObjectMapper().readTree(corpo).get("vetorAtual").toString();
+    }
 }

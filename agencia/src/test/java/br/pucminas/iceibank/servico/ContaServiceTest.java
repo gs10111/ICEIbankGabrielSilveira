@@ -7,6 +7,7 @@ import br.pucminas.iceibank.modelo.conta.ContaJaExisteException;
 import br.pucminas.iceibank.modelo.conta.ContaNaoEncontradaException;
 import br.pucminas.iceibank.modelo.conta.ContaNaoPertenceAgenciaException;
 import br.pucminas.iceibank.modelo.conta.SaldoInsuficienteException;
+import br.pucminas.iceibank.modelo.conta.ValorInvalidoException;
 import br.pucminas.iceibank.modelo.evento.Evento;
 import br.pucminas.iceibank.modelo.particao.Particionador;
 import br.pucminas.iceibank.modelo.relogio.CarimboVetorial;
@@ -206,6 +207,76 @@ class ContaServiceTest {
     @DisplayName("historico de conta inexistente e rejeitado")
     void historicoDeContaInexistenteEhRejeitado() {
         assertThrows(ContaNaoEncontradaException.class, () -> servico.historico(0, 10));
+    }
+
+    // ---------- Sprint 3, Parte E: sincronizacao offline-first ----------
+
+    @Test
+    @DisplayName("sincronizar com o vetor que a agencia ainda tem aplica a operacao e registra SINCRONIZACAO_OFFLINE")
+    void sincronizarComVetorAtualAplica() {
+        servico.abrir(0, "Ana", new BigDecimal("100.00"));
+        CarimboVetorial lidoPeloApp = servico.vetorAtual();
+
+        Conta conta = servico.sincronizar(0, "DEPOSITO", new BigDecimal("30.00"), lidoPeloApp);
+
+        assertThat(conta.saldo()).isEqualByComparingTo("130.00");
+        assertThat(registro.eventos.get(registro.eventos.size() - 1).tipo()).isEqualTo("SINCRONIZACAO_OFFLINE");
+    }
+
+    @Test
+    @DisplayName("se a agencia mudou desde a leitura do app, a sincronizacao e recusada e nada e aplicado")
+    void sincronizarComVetorAntigoDaConflito() {
+        servico.abrir(0, "Ana", new BigDecimal("100.00"));
+        CarimboVetorial lidoPeloApp = servico.vetorAtual();
+        servico.depositar(0, new BigDecimal("50.00"));          // aconteceu enquanto o app estava offline
+
+        ConflitoDeSincronizacaoException conflito = assertThrows(ConflitoDeSincronizacaoException.class,
+                () -> servico.sincronizar(0, "SAQUE", new BigDecimal("120.00"), lidoPeloApp));
+
+        assertThat(conflito.vetorConhecido()).isEqualTo(lidoPeloApp);
+        assertThat(conflito.vetorAtual()).isEqualTo(servico.vetorAtual());
+        assertThat(conflito.contaAtual().saldo()).isEqualByComparingTo("150.00");
+    }
+
+    @Test
+    @DisplayName("vetor CONCORRENTE ao da agencia tambem e conflito: so IGUAIS e seguro")
+    void vetorConcorrenteDaConflito() {
+        servico.abrir(0, "Ana", new BigDecimal("100.00"));      // agencia em [1,0,0]
+
+        assertThrows(ConflitoDeSincronizacaoException.class, () -> servico.sincronizar(
+                0, "DEPOSITO", BigDecimal.TEN, new CarimboVetorial(List.of(0, 4, 0))));
+    }
+
+    @Test
+    @DisplayName("reenviar a MESMA operacao (a resposta se perdeu na rede) nao aplica duas vezes")
+    void reenvioNaoDuplica() {
+        servico.abrir(0, "Ana", new BigDecimal("100.00"));
+        CarimboVetorial lidoPeloApp = servico.vetorAtual();
+        servico.sincronizar(0, "DEPOSITO", new BigDecimal("30.00"), lidoPeloApp);
+
+        assertThrows(ConflitoDeSincronizacaoException.class,
+                () -> servico.sincronizar(0, "DEPOSITO", new BigDecimal("30.00"), lidoPeloApp));
+        assertThat(servico.consultar(0).saldo()).isEqualByComparingTo("130.00");
+    }
+
+    @Test
+    @DisplayName("saque offline maior que o saldo e recusado sem avancar o relogio")
+    void saqueSemSaldoNaoAvancaRelogio() {
+        servico.abrir(0, "Ana", new BigDecimal("100.00"));
+        CarimboVetorial lidoPeloApp = servico.vetorAtual();
+
+        assertThrows(SaldoInsuficienteException.class,
+                () -> servico.sincronizar(0, "SAQUE", new BigDecimal("500.00"), lidoPeloApp));
+        assertThat(servico.vetorAtual()).isEqualTo(lidoPeloApp);
+    }
+
+    @Test
+    @DisplayName("tipo de operacao offline desconhecido e recusado")
+    void tipoDesconhecido() {
+        servico.abrir(0, "Ana", new BigDecimal("100.00"));
+
+        assertThrows(ValorInvalidoException.class,
+                () -> servico.sincronizar(0, "PIX", BigDecimal.TEN, servico.vetorAtual()));
     }
 
     /** Registro de eventos que fica na memoria, para o teste nao tocar disco. */

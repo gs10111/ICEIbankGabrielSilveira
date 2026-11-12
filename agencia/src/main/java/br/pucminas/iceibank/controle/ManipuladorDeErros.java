@@ -8,7 +8,11 @@ import br.pucminas.iceibank.modelo.conta.ContaNaoEncontradaException;
 import br.pucminas.iceibank.modelo.conta.ContaNaoPertenceAgenciaException;
 import br.pucminas.iceibank.modelo.conta.SaldoInsuficienteException;
 import br.pucminas.iceibank.modelo.conta.ValorInvalidoException;
+import br.pucminas.iceibank.config.AgenciaProperties;
+import br.pucminas.iceibank.controle.dto.ConflitoResposta;
+import br.pucminas.iceibank.controle.dto.ContaResposta;
 import br.pucminas.iceibank.controle.dto.ErroResposta;
+import br.pucminas.iceibank.servico.ConflitoDeSincronizacaoException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -27,6 +31,12 @@ import java.util.stream.Collectors;
  */
 @RestControllerAdvice
 public class ManipuladorDeErros {
+
+    private final int idAgencia;
+
+    public ManipuladorDeErros(AgenciaProperties propriedades) {
+        this.idAgencia = propriedades.id();
+    }
 
     @ExceptionHandler(ContaNaoEncontradaException.class)
     public ResponseEntity<ErroResposta> naoEncontrada(ContaNaoEncontradaException e) {
@@ -70,6 +80,17 @@ public class ManipuladorDeErros {
                 "Mensageria indisponivel: a transferencia NAO foi publicada e o DEBITO JA FOI"
                         + " APLICADO — inconsistencia conhecida, ver Sprint 4 (2PC/Saga). Causa: "
                         + e.getMessage());
+    }
+
+    /**
+     * SPRINT 3, Parte E: a operacao offline NAO foi aplicada. O corpo leva o estado real
+     * da conta para o app mostrar, em vez de so um texto de erro.
+     */
+    @ExceptionHandler(ConflitoDeSincronizacaoException.class)
+    public ResponseEntity<ConflitoResposta> conflitoDeSincronizacao(ConflitoDeSincronizacaoException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ConflitoResposta(
+                e.getMessage(), e.vetorConhecido().valores(), e.vetorAtual().valores(),
+                ContaResposta.de(e.contaAtual(), idAgencia, e.vetorAtual())));
     }
 
     @ExceptionHandler(ChaveIdempotenciaConflitanteException.class)

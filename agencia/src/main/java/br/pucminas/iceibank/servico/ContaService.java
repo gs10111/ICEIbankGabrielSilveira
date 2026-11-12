@@ -8,7 +8,9 @@ import br.pucminas.iceibank.modelo.conta.ContaNaoPertenceAgenciaException;
 import br.pucminas.iceibank.modelo.conta.ValorInvalidoException;
 import br.pucminas.iceibank.modelo.evento.Evento;
 import br.pucminas.iceibank.modelo.particao.Particionador;
+import br.pucminas.iceibank.modelo.conta.SaldoInsuficienteException;
 import br.pucminas.iceibank.modelo.relogio.CarimboVetorial;
+import br.pucminas.iceibank.modelo.relogio.Relacao;
 import br.pucminas.iceibank.modelo.relogio.RelogioVetorial;
 import br.pucminas.iceibank.repositorio.ContaRepositorio;
 import br.pucminas.iceibank.repositorio.RegistroDeEventos;
@@ -91,6 +93,61 @@ public class ContaService {
         conta.sacar(valor);
         eventos.registrar("SAQUE", carimbo,
                 Map.of("id", id, "valor", valor, "novoSaldo", conta.saldo()));
+        return conta;
+    }
+
+    /** O vetor da agencia agora, sem avanca-lo. O app guarda junto com o saldo (Sprint 3, Parte E). */
+    public CarimboVetorial vetorAtual() {
+        return relogio.valorAtual();
+    }
+
+    /**
+     * SPRINT 3, Parte E — aplica uma operacao feita OFFLINE pelo app, se ainda for seguro.
+     *
+     * O app manda o vetor que a agencia tinha quando ele leu a conta pela ultima vez.
+     * So IGUAIS e seguro: ANTES significa que a agencia avancou desde entao (algo mudou
+     * enquanto o app estava offline), e CONCORRENTES significa um vetor que esta agencia
+     * nunca teve. Em ambos os casos nada e aplicado e o app recebe o estado real.
+     *
+     * Simplificacao do roteiro, mantida de proposito: o vetor e da AGENCIA, nao da conta.
+     * Uma operacao em OUTRA conta — ou uma mensagem do Bully — tambem conta como mudanca.
+     * Ver a resposta 9.6.2.
+     *
+     * Efeito colateral bom: reenviar a mesma operacao (a resposta se perdeu na rede) da
+     * 409 na segunda vez, porque a primeira ja avancou o vetor. O vetor faz as vezes de
+     * chave de idempotencia.
+     */
+    public Conta sincronizar(int id, String tipo, BigDecimal valor, CarimboVetorial vetorConhecido) {
+        exigirQueSejaDestaAgencia(id);
+        Conta conta = buscarOuFalhar(id);
+        if (!"DEPOSITO".equals(tipo) && !"SAQUE".equals(tipo)) {
+            throw new ValorInvalidoException("tipo de operacao pendente nao suportado: " + tipo
+                    + " (aceitos: DEPOSITO, SAQUE)");
+        }
+
+        CarimboVetorial agora = relogio.valorAtual();
+        if (CarimboVetorial.comparar(vetorConhecido, agora) != Relacao.IGUAIS) {
+            throw new ConflitoDeSincronizacaoException(vetorConhecido, agora, conta);
+        }
+        // Validado ANTES de carimbar: um saque recusado nao pode avancar o vetor, senao o
+        // app ganharia um conflito falso na proxima tentativa.
+        if (valor == null || valor.signum() <= 0) {
+            throw new ValorInvalidoException("valor deve ser positivo: " + valor);
+        }
+        if ("SAQUE".equals(tipo) && conta.saldo().compareTo(valor) < 0) {
+            throw new SaldoInsuficienteException("saldo insuficiente: saldo=" + conta.saldo() + " valor=" + valor);
+        }
+
+        // Compara e avanca de uma vez: se outra operacao entrou desde a linha de cima, e conflito.
+        CarimboVetorial carimbo = relogio.eventoLocalSeAindaFor(vetorConhecido)
+                .orElseThrow(() -> new ConflitoDeSincronizacaoException(vetorConhecido, relogio.valorAtual(), conta));
+        if ("DEPOSITO".equals(tipo)) {
+            conta.depositar(valor);
+        } else {
+            conta.sacar(valor);
+        }
+        eventos.registrar("SINCRONIZACAO_OFFLINE", carimbo,
+                Map.of("id", id, "tipo", tipo, "valor", valor, "novoSaldo", conta.saldo()));
         return conta;
     }
 
