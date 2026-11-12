@@ -31,6 +31,18 @@ class SemConexao implements Exception {
   String toString() => 'Agência $agencia não respondeu (sem conexão ou fora do ar).';
 }
 
+/// HTTP 409 de POST /contas/{id}/sincronizar: a operacao offline NAO foi aplicada
+/// porque a agencia mudou desde a leitura do app. Traz o estado real da conta.
+class ConflitoDeSincronizacao implements Exception {
+  final String mensagem;
+  final ContaLida contaAtual;
+
+  const ConflitoDeSincronizacao(this.mensagem, this.contaAtual);
+
+  @override
+  String toString() => mensagem;
+}
+
 /// Unico ponto do app que fala HTTP e que sabe do JWT — o mesmo papel do
 /// modelo/api.js do frontend web (resposta da pergunta 12.3.1 do Sprint 1).
 class ApiCliente {
@@ -71,6 +83,11 @@ class ApiCliente {
     return Recibo(corpo['mensagem'] as String, centavosDe(corpo['saldoOrigem']));
   }
 
+  /// SPRINT 3, Parte F — entrega uma operacao feita offline. 409 vira ConflitoDeSincronizacao.
+  Future<ContaLida> sincronizar(int idConta, String tipo, int centavos, List<int> vetorConhecido) async =>
+      ContaLida.daApi(await _requisitar(malha.agenciaDaConta(idConta), 'POST', '/contas/$idConta/sincronizar',
+          {'tipo': tipo, 'valor': reaisDe(centavos), 'vetorConhecido': vetorConhecido}));
+
   /// GET /bully/lider numa agencia especifica. Publico: nao precisa de login.
   /// null = aquela agencia ainda nao sabe quem e a lider (eleicao em curso).
   Future<int?> liderSegundo(int agencia) async =>
@@ -102,9 +119,11 @@ class ApiCliente {
     throw erroDe(resposta.statusCode, json);
   }
 
-  /// Separado para a Parte F poder especializar o 409 da sincronizacao.
   Exception erroDe(int status, Object? json) {
     final mensagem = json is Map && json['erro'] != null ? json['erro'] as String : 'Erro HTTP $status';
+    if (status == 409 && json is Map && json['contaAtual'] is Map) {
+      return ConflitoDeSincronizacao(mensagem, ContaLida.daApi(Map<String, dynamic>.from(json['contaAtual'] as Map)));
+    }
     return ErroApi(status, mensagem);
   }
 }

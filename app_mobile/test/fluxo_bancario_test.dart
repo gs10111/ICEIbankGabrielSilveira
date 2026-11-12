@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:hive_ce/hive_ce.dart';
 import 'package:iceibank_mobile/api/api_cliente.dart';
+import 'package:iceibank_mobile/dados/armazenamento.dart';
 import 'package:iceibank_mobile/estado/banco.dart';
 import 'package:iceibank_mobile/estado/monitor_lideranca.dart';
 import 'package:iceibank_mobile/main.dart';
@@ -52,10 +54,15 @@ Future<void> operar(WidgetTester tester, String botao, String valor) async {
 
 IceiBankApp app() {
   final api = ApiCliente(const Malha(host: 'h'), cliente: agenciaFalsa());
-  return IceiBankApp(banco: Banco(api), monitor: MonitorLideranca(api));
+  return IceiBankApp(banco: Banco(api, armazenamento), monitor: MonitorLideranca(api));
 }
 
+late Armazenamento armazenamento;
+
 void main() {
+  setUp(() async => armazenamento = await Armazenamento.emMemoria());
+  tearDown(Hive.close);
+
   testWidgets('login, saldo, deposito e saque pela interface', (tester) async {
     await tester.pumpWidget(app());
 
