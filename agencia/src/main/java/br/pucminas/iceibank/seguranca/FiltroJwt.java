@@ -23,7 +23,9 @@ import java.util.Optional;
  *
  * REGRAS:
  *  - /auth/ (qualquer)     publico (senao ninguem consegue obter token)
- *  - /interno                     exige o header X-Agencia-Token (e SO ele)
+ *  - /bully/lider          publico (heartbeat entre agencias e painel do app mobile)
+ *  - /interno, /bully/eleicao, /bully/coordenador
+ *                           exigem o header X-Agencia-Token (e SO ele)
  *  - todo o resto           exige Authorization: Bearer <jwt> valido
  *
  * DECISAO (pergunta 11.1.5 do roteiro): a chamada interna NAO carrega JWT de usuario.
@@ -86,13 +88,18 @@ public class FiltroJwt extends OncePerRequestFilter {
     }
 
     private boolean ehPublico(String caminho) {
-        // /status e health-check: nao revela saldo nem titular.
-        return caminho.startsWith("/auth/") || caminho.equals("/status") || caminho.equals("/error");
+        // /status e health-check: nao revela saldo nem titular. /bully/lider tambem nao:
+        // so diz qual agencia e a lider — e e o que o heartbeat usa para saber se ela esta viva.
+        return caminho.startsWith("/auth/") || caminho.equals("/status") || caminho.equals("/error")
+                || caminho.equals("/bully/lider");
     }
 
     /**
      * As UNICAS rotas que o segredo de servico abre:
      *  - /interno          a leitura que o extrato consolidado faz nas outras agencias
+     *  - /bully/eleicao e /bully/coordenador   as mensagens do Bully (Sprint 3). Sem isto,
+     *    qualquer um que achasse a URL forjaria um anuncio de coordenador — ver a
+     *    pergunta 5.5.3 do roteiro.
      *
      * No Sprint 1 havia tambem /creditar-remoto aqui. Ele saiu no Sprint 2: creditar
      * deixou de ser uma chamada HTTP e virou uma MENSAGEM, que nao passa pelo filtro
@@ -101,7 +108,8 @@ public class FiltroJwt extends OncePerRequestFilter {
      * Qualquer outra rota exige JWT de usuario, mesmo com o header presente.
      */
     private boolean ehRotaInterna(String caminho) {
-        return caminho.endsWith("/interno");
+        return caminho.endsWith("/interno")
+                || caminho.equals("/bully/eleicao") || caminho.equals("/bully/coordenador");
     }
 
     private boolean tokenDeServicoConfere(HttpServletRequest requisicao) {

@@ -13,6 +13,14 @@ agencia:
 server:
   port: ${SERVER_PORT:4016}
 
+# SPRINT 3 — eleicao de lider (algoritmo de Bully).
+# timeout: quanto esperar outra agencia antes de considera-la fora do ar.
+# intervalo: de quanto em quanto tempo o heartbeat confere se a lider continua viva.
+bully:
+  timeout-ms: ${BULLY_TIMEOUT_MS:1000}
+  intervalo-ms: ${BULLY_INTERVALO_MS:3000}
+  ativo: ${BULLY_ATIVO:true}
+
 # PARTE A — mensageria (RabbitMQ / CloudAMQP).
 # A URL e SEGREDO: vem sempre do ambiente, nunca tem default commitado.
 #   export RABBITMQ_URL="amqps://usuario:senha@host.cloudamqp.com/vhost"
