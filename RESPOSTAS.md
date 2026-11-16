@@ -631,7 +631,7 @@ No Sprint 4 a líder coordena o 2PC, e uma líder forjada passa a decidir commit
 `application.yml`. Quem lê o repositório consegue forjar um coordenador. Em produção, o segredo viria
 só do ambiente e cada agência teria a própria credencial, para a mensagem provar *quem* a enviou, e
 não só que "veio de alguma agência". Quanto à entrada, `liderId` e `origemId` fora de `[0, 3)` e
-vetores com posição negativa já são recusados com 400 (commit `82ea6c6`).
+vetores com posição negativa já são recusados com 400 (commit `860ee8f`).
 
 ## Parte B — Heartbeat e failover automático (6.4)
 
@@ -733,7 +733,7 @@ A transferência acima (conta 0 → conta 1, R$ 25,00) foi feita pela interface 
 R$ 800,00 para R$ 825,00, com o `TRANSFERENCIA_CREDITO_REMOTO` chegando pela fila. Essa rodada
 achou um defeito que os testes na VM não pegavam: a chave de idempotência usava
 `Random.nextInt(1 << 32)`, e compilado para JavaScript `1 << 32` vale 0. Toda transferência
-falhava no app web antes de sair do aparelho. Corrigido no commit `54fcf7f`.
+falhava no app web antes de sair do aparelho. Corrigido no commit `e43b73f`.
 
 ### 8.3.1 — Com que frequência o app consulta `/bully/lider`? Que trade-off?
 
@@ -920,7 +920,7 @@ a divergência visível (8.3.2).
 
 O indicador diz que a agência **respondeu ao app**, não que ela esteja saudável para as outras
 agências. São perguntas diferentes, e numa partição de rede as respostas podem divergir. Commit
-próprio: `b1d87ae`.
+próprio: `c0db81e`.
 
 
 ## Índice de evidências

@@ -279,7 +279,7 @@ contexto. O `ServicoBullyTest` liga as 3 agências por uma rede em memória, ent
 
 No app, os testes de widget rodam também no navegador
 (`flutter test --platform chrome`) — foi assim que apareceu um defeito que só existia na web
-(ver commit `54fcf7f`).
+(ver commit `e43b73f`).
 
 No frontend, `src/modelo/agencias.test.mjs` cobre a descoberta de topologia: backend
 informando outro número de agências, agência de entrada fora do ar, resposta inválida
